@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phần Mềm Áp Giá Tự Động Cơ Điện (MEP Auto-Pricing)</title>
+  <meta name="description" content="Ứng dụng Desktop tự động hóa tra cứu, tính toán và áp đơn giá vật tư và nhân công cho kỹ sư dự toán cơ điện (MEP), tích hợp thuật toán khớp mờ và AI Gemini.">
+  <link rel="stylesheet" href="styles.css">
+  <!-- Thư viện SheetJS & ExcelJS Offline (Hỗ trợ giữ nguyên 100% styles & form BOQ gốc) -->
+  <script src="libs/xlsx.full.min.js"></script>
+  <script src="libs/exceljs.min.js"></script>
+</head>
+<body class="dark-theme">
+
+  <!-- Header & Thanh điều hướng chính -->
+  <header class="app-header">
+    <div class="brand-wrapper">
+      <div class="brand-icon">⚡</div>
+      <div>
+        <h1 class="brand-title">MEP Auto-Pricing</h1>
+        <div class="brand-subtitle">Hệ Thống Áp Giá Tự Động Cơ Điện</div>
+      </div>
+    </div>
+
+    <!-- Thanh chuyển Tab chức năng -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="tab-dashboard" id="btn-tab-dashboard">
+        <span>📊</span> Tổng Quan
+      </button>
+      <button class="tab-btn" data-tab="tab-workspace" id="btn-tab-workspace">
+        <span>⚡</span> Không Gian Áp Giá
+      </button>
+      <button class="tab-btn" data-tab="tab-library" id="btn-tab-library">
+        <span>📚</span> Kho Bảng Giá
+      </button>
+      <button class="tab-btn" data-tab="tab-memory" id="btn-tab-memory">
+        <span>🧠</span> Bộ Nhớ Quy Tắc
+      </button>
+      <button class="tab-btn" data-tab="tab-settings" id="btn-tab-settings">
+        <span>⚙️</span> Cài Đặt
+      </button>
+    </nav>
+
+    <!-- Nút chuyển theme & tác vụ nhanh -->
+    <div class="header-actions">
+      <button class="theme-toggle-btn" id="btn-toggle-theme" title="Chuyển chế độ Sáng / Tối">
+        <span id="theme-icon">☀️</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Vùng nội dung chính -->
+  <main class="main-content">
+
+    <!-- ==========================================
+         TAB 1: TỔNG QUAN (DASHBOARD)
+         ========================================== -->
+    <section class="tab-panel active" id="tab-dashboard">
+      <div class="dashboard-hero">
+        <div>
+          <h2 class="hero-title">Chào mừng Kỹ sư Dự toán Cơ Điện (MEP QS)</h2>
+          <p class="hero-desc">
+            Hệ thống tự động hóa quá trình tra cứu, tính toán và điền đơn giá <strong>Vật tư + Nhân công</strong> 
+            từ bảng giá chuẩn vào file Excel bảng khối lượng (BOQ). Kết hợp thuật toán khớp mờ tiếng Việt chuyên ngành 
+            và trí tuệ nhân tạo <strong>Google Gemini API</strong> giúp tiết kiệm 80% thời gian lập dự toán.
+          </p>
+          <div style="margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
+            <button class="btn btn-primary" id="btn-dash-start">
+              <span>⚡</span> Bắt Đầu Áp Giá BOQ Ngay
+            </button>
+            <button class="btn btn-secondary" id="btn-dash-seed-data">
+              <span>🔄</span> Nạp Lại Dữ Liệu Mẫu Cơ Điện Chuẩn
+            </button>
+            <button class="btn btn-secondary" id="btn-dash-download-samples">
+              <span>📥</span> Tải File Excel Mẫu Về Máy
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Thẻ số liệu thống kê -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon blue">📦</div>
+          <div class="stat-info">
+            <div class="stat-value" id="stat-total-materials">0</div>
+            <div class="stat-label">Vật tư trong kho (<span id="stat-total-catalogs">0</span> file giá)</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">🧠</div>
+          <div class="stat-info">
+            <div class="stat-value" id="stat-total-memory">0</div>
+            <div class="stat-label">Quy tắc đã học tự động</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon amber">⚡</div>
+          <div class="stat-info">
+            <div class="stat-value" id="stat-match-rate">0%</div>
+            <div class="stat-label">Tỷ lệ tự động khớp giá</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon purple">💰</div>
+          <div class="stat-info">
+            <div class="stat-value mono" id="stat-total-value">0 đ</div>
+            <div class="stat-label">Tổng giá trị dự toán đang lập</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Thẻ hướng dẫn nhanh -->
+      <div class="quick-start-grid">
+        <div class="quick-card">
+          <div>
+            <h3 class="quick-card-title"><span>1.</span> Nạp Kho Đơn Giá Chuẩn</h3>
+            <p class="quick-card-desc">
+              Tải lên file Excel bảng giá nội bộ hoặc báo giá nhà cung cấp (Cadivi, Schneider, Tiền Phong, Daikin...). 
+              Hệ thống hỗ trợ ánh xạ cột linh hoạt cho mọi mẫu file.
+            </p>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="btn-quick-import-price">
+            <span>📚</span> Đi đến Kho Bảng Giá
+          </button>
+        </div>
+
+        <div class="quick-card">
+          <div>
+            <h3 class="quick-card-title"><span>2.</span> Tải Bảng BOQ & Áp Giá Tự Động</h3>
+            <p class="quick-card-desc">
+              Tải file Excel bảng khối lượng từ chủ đầu tư. Bấm 1 nút để phần mềm tự động so khớp mờ, 
+              hiển thị % độ khớp chính xác và điền giá cả 2 phần: Vật tư và Nhân công.
+            </p>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btn-quick-pricing">
+            <span>⚡</span> Mở Không Gian Áp Giá
+          </button>
+        </div>
+
+        <div class="quick-card">
+          <div>
+            <h3 class="quick-card-title"><span>3.</span> AI Gemini Đọc Viết Tắt & Nội Suy</h3>
+            <p class="quick-card-desc">
+              Khi gặp tên vật tư viết tắt phức tạp hoặc quy cách lạ chưa có trong kho, 
+              AI Gemini sẽ suy luận và đề xuất đơn giá nội suy. Bạn luôn nắm quyền kiểm soát và phê duyệt.
+            </p>
+          </div>
+          <button class="btn btn-purple btn-sm" id="btn-quick-settings">
+            <span>⚙️</span> Cấu Hình Gemini API Key
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 2: KHÔNG GIAN ÁP GIÁ (PRICING WORKSPACE)
+         ========================================== -->
+    <section class="tab-panel" id="tab-workspace">
+      <!-- Thanh công cụ điều khiển Workspace -->
+      <div class="workspace-header">
+        <div>
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <h2 style="font-size: 20px; font-weight: 700;">Không Gian Dự Toán & Áp Đơn Giá BOQ</h2>
+            <div class="catalog-priority-pill" id="ws-catalog-priority-pill" title="Bấm để xem và điều chỉnh thứ tự ưu tiên các file giá">
+              <span>📚</span> Nguồn giá: <strong id="ws-active-catalogs-text">Đang tải...</strong>
+              <button class="pill-btn" id="btn-ws-manage-catalogs">Tùy chọn ⚙️</button>
+            </div>
+          </div>
+          <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
+            Hỗ trợ so khớp theo thứ tự ưu tiên các file giá, tự động nội suy kỹ thuật từ danh mục tương tự và xuất file chuẩn 100% form BOQ gốc
+          </p>
+        </div>
+
+        <div class="workspace-actions">
+          <input type="file" id="input-boq-file" accept=".xlsx, .xls" style="display: none;">
+          <button class="btn btn-secondary" id="btn-open-boq">
+            <span>📂</span> Chọn File Excel BOQ
+          </button>
+          <button class="btn btn-secondary" id="btn-load-demo-boq" title="Thử nghiệm ngay với dữ liệu mẫu cơ điện">
+            <span>✨</span> Dùng BOQ Mẫu Demo
+          </button>
+          <button class="btn btn-primary" id="btn-run-auto-pricing">
+            <span>⚡</span> Tự Động Áp Giá
+          </button>
+          <button class="btn btn-secondary" id="btn-filter-unpriced" title="Lọc các dòng màu vàng/đỏ chưa có giá">
+            <span>🔍</span> <span id="text-filter-unpriced">Lọc Ô Thiếu Giá</span>
+          </button>
+          <button class="btn btn-secondary btn-danger" id="btn-filter-low-match" title="Lọc các dòng tô màu cảnh báo có độ khớp < 70%">
+            <span>⚠️</span> <span id="text-filter-low-match">Lọc Khớp &lt; 70%</span>
+          </button>
+          <button class="btn btn-purple" id="btn-run-ai-batch" title="Tự động chạy AI 3.8 Flash phân tích và nội suy toàn bộ đơn giá cho các dòng thiếu giá hoặc khớp < 70%">
+            <span>🤖</span> Tự Động Chạy AI 3.8 Cho Dòng Cần Giá
+          </button>
+          <button class="btn btn-success" id="btn-approve-all-ai" style="display: none;" title="Duyệt tất cả đề xuất do AI nội suy và lưu vào bộ nhớ">
+            <span>✅</span> Duyệt Toàn Bộ Đơn Giá AI
+          </button>
+          <button class="btn btn-success" id="btn-export-excel">
+            <span>📥</span> Xuất File Excel Chuẩn Form BOQ
+          </button>
+        </div>
+      </div>
+
+      <!-- Thanh tiến trình xử lý AI theo đợt (Batch AI) -->
+      <div id="ai-batch-progress-wrapper" style="display: none; margin-bottom: 16px; background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 12px 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 18px;">🤖</span>
+            <span id="ai-batch-progress-text" style="color: var(--text-main); font-weight: 600;">AI Gemini 3.8 Flash đang phân tích và nội suy đơn giá...</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span id="ai-batch-progress-percent" class="mono" style="font-weight: 700; color: #a855f7; font-size: 14px;">0%</span>
+            <button class="btn btn-secondary btn-sm" id="btn-cancel-ai-batch" style="padding: 3px 10px; font-size: 11px;">
+              <span>⏹️</span> Dừng Lại
+            </button>
+          </div>
+        </div>
+        <div style="height: 8px; background: rgba(0, 0, 0, 0.2); border-radius: 4px; overflow: hidden;">
+          <div id="ai-batch-progress-fill" style="height: 100%; width: 0%; background: linear-gradient(90deg, #9333ea, #c084fc); transition: width 0.2s ease;"></div>
+        </div>
+      </div>
+
+      <!-- Chú thích tô màu cảnh báo độ khớp và phân loại dòng -->
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; font-size: 12px; color: var(--text-secondary); background: var(--bg-card); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--bg-border);">
+        <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 16px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="display: inline-block; width: 14px; height: 14px; background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; border-radius: 3px;"></span>
+            <span>Độ khớp <strong>&lt; 70%</strong> / Thiếu giá (Cần rà soát)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="display: inline-block; width: 14px; height: 14px; background: rgba(168, 85, 247, 0.25); border: 1px solid #a855f7; border-radius: 3px;"></span>
+            <span>AI 3.8 Flash nội suy (Cần kỹ sư phê duyệt)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="display: inline-block; width: 14px; height: 14px; background: rgba(16, 185, 129, 0.25); border: 1px solid #10b981; border-radius: 3px;"></span>
+            <span>Khớp chuẩn / Bộ nhớ tự động (100%)</span>
+          </div>
+        </div>
+        <div id="stats-low-match-count" style="font-weight: 600; color: #ef4444;">
+          Số dòng &lt; 70%: 0 dòng
+        </div>
+      </div>
+
+      <!-- Thanh tổng hợp dự toán -->
+      <div class="pricing-summary-bar">
+        <div class="summary-item">
+          <span class="summary-label">Tổng Số Dòng BOQ</span>
+          <span class="summary-val mono" id="sum-total-rows">0</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Đã Có Đơn Giá</span>
+          <span class="summary-val mono" style="color: var(--accent-secondary);" id="sum-priced-rows">0</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Chưa Có Giá (Cần Xem)</span>
+          <span class="summary-val mono" style="color: var(--accent-warning);" id="sum-unpriced-rows">0</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Tổng Tiền Vật Tư (VNĐ)</span>
+          <span class="summary-val mono" id="sum-mat-total">0 đ</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Tổng Tiền Nhân Công (VNĐ)</span>
+          <span class="summary-val mono" id="sum-lab-total">0 đ</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Tổng Thành Tiền Dự Toán</span>
+          <span class="summary-val mono total-money" id="sum-grand-total">0 đ</span>
+        </div>
+      </div>
+
+      <!-- Thanh tiến trình xử lý khi áp giá -->
+      <div id="pricing-progress-wrapper" style="display: none; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+          <span id="progress-text" style="color: var(--text-secondary);">Đang tính toán khớp mờ...</span>
+          <span id="progress-percent" class="mono" style="font-weight: 700; color: var(--accent-primary);">0%</span>
+        </div>
+        <div style="height: 6px; background: var(--bg-border); border-radius: 3px; overflow: hidden;">
+          <div id="progress-bar-fill" style="height: 100%; width: 0%; background: var(--accent-gradient); transition: width 0.1s ease;"></div>
+        </div>
+      </div>
+
+      <!-- Bảng tính dữ liệu tương tác (Spreadsheet Grid) -->
+      <div class="table-container" style="max-height: calc(100vh - 350px);">
+        <table class="data-table" id="boq-table">
+          <thead>
+            <tr>
+              <th style="width: 45px; text-align: center;">STT</th>
+              <th style="width: 90px;">Mã Hiệu</th>
+              <th style="min-width: 300px;">Nội Dung Công Việc / Vật Tư</th>
+              <th style="width: 65px; text-align: center;">ĐVT</th>
+              <th style="width: 90px; text-align: right;">Khối Lượng</th>
+              <th style="width: 140px; text-align: right;">Đơn Giá Vật Tư (đ)</th>
+              <th style="width: 140px; text-align: right;">Đơn Giá Nhân Công (đ)</th>
+              <th style="width: 150px; text-align: right;">Thành Tiền VT (đ)</th>
+              <th style="width: 150px; text-align: right;">Thành Tiền NC (đ)</th>
+              <th style="width: 160px; text-align: right;">Tổng Tiền (đ)</th>
+              <th style="width: 150px; text-align: center;">Độ Khớp / Nguồn</th>
+              <th style="width: 120px; text-align: center;">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="boq-table-body">
+            <!-- Render động các dòng BOQ tại đây -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 3: KHO BẢNG GIÁ (PRICE LIBRARY)
+         ========================================== -->
+    <section class="tab-panel" id="tab-library">
+      <div class="library-toolbar">
+        <div class="search-box-wrapper">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="search-input" id="search-library-input" placeholder="Tìm kiếm vật tư theo mã, tên, quy cách, nhà cung cấp...">
+        </div>
+
+        <div class="filter-group">
+          <!-- Dropdown lọc theo File Bảng Giá -->
+          <select class="select-filter" id="filter-price-catalog" style="min-width: 220px; font-weight: 600;" title="Chọn xem danh mục vật tư của riêng từng file bảng giá hoặc xem tất cả">
+            <option value="all">📁 Tất Cả File Bảng Giá</option>
+          </select>
+
+          <select class="select-filter" id="filter-system">
+            <option value="all">Tất Cả Hệ Thống</option>
+            <option value="Hệ Điện">Hệ Điện (Electrical)</option>
+            <option value="Hệ Nước">Hệ Cấp Thoát Nước (Plumbing)</option>
+            <option value="Hệ HVAC">Hệ HVAC (Điều Hòa - Thông Gió)</option>
+          </select>
+
+          <input type="file" id="input-price-file" accept=".xlsx, .xls" style="display: none;">
+          <button class="btn btn-secondary" id="btn-import-price-excel" title="Tải file Excel bảng giá mới lên hệ thống">
+            <span>📂</span> Nhập File Excel Bảng Giá
+          </button>
+          
+          <button class="btn btn-secondary" id="btn-manage-catalogs" title="Quản lý danh sách file bảng giá, bật/tắt kích hoạt, đổi thứ tự ưu tiên hoặc xóa file">
+            <span>⚙️</span> Quản Lý File Giá (<span id="catalogs-active-count">0</span>)
+          </button>
+
+          <button class="btn btn-primary" id="btn-add-material-modal">
+            <span>➕</span> Thêm Vật Tư Mới
+          </button>
+          <button class="btn btn-danger btn-sm" id="btn-clear-library" title="Xóa toàn bộ kho giá hiện tại">
+            <span>🗑️</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Bảng danh mục giá chuẩn -->
+      <div class="table-container" style="max-height: calc(100vh - 260px);">
+        <table class="data-table" id="library-table">
+          <thead>
+            <tr>
+              <th style="width: 50px; text-align: center;">ID</th>
+              <th style="width: 110px;">Mã Hiệu</th>
+              <th style="min-width: 250px;">Tên Vật Tư Chuẩn</th>
+              <th style="min-width: 230px;">Thông Số / Quy Cách</th>
+              <th style="width: 70px; text-align: center;">ĐVT</th>
+              <th style="width: 130px; text-align: right;">Đơn Giá VT (đ)</th>
+              <th style="width: 130px; text-align: right;">Đơn Giá NC (đ)</th>
+              <th style="width: 110px;">Hệ Thống</th>
+              <th style="width: 110px;">Nhà Cung Cấp</th>
+              <th style="width: 140px;">Nguồn File</th>
+              <th style="width: 90px; text-align: center;">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="library-table-body">
+            <!-- Render động danh sách vật tư -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 4: BỘ NHỚ QUY TẮC (MAPPING MEMORY)
+         ========================================== -->
+    <section class="tab-panel" id="tab-memory">
+      <div class="glass-card" style="margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h3 style="font-size: 18px; font-weight: 700;">Bộ Nhớ Học Quy Tắc Ghép Giá (Auto-Memory Cache)</h3>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">
+              Mỗi khi bạn chọn một gợi ý hoặc duyệt áp giá cho một tên công việc trong BOQ, 
+              hệ thống sẽ tự động ghi nhớ cặp từ khóa này. Lần sau gặp lại, phần mềm sẽ tự áp đúng 100% mà không cần hỏi lại.
+            </p>
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn btn-primary" id="btn-open-add-memory">
+              <span>➕</span> Thêm Quy Tắc Ghép Giá Thủ Công
+            </button>
+            <button class="btn btn-danger btn-sm" id="btn-clear-memory">
+              <span>🗑️</span> Xóa Toàn Bộ Quy Tắc Đã Học
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-container" style="max-height: calc(100vh - 280px);">
+        <table class="data-table" id="memory-table">
+          <thead>
+            <tr>
+              <th style="width: 50px; text-align: center;">STT</th>
+              <th style="min-width: 300px;">Cụm Từ Gốc Trong BOQ</th>
+              <th style="min-width: 300px;">Vật Tư Chuẩn Được Ghép Nối</th>
+              <th style="width: 70px; text-align: center;">ĐVT</th>
+              <th style="width: 130px; text-align: right;">Đơn Giá VT (đ)</th>
+              <th style="width: 130px; text-align: right;">Đơn Giá NC (đ)</th>
+              <th style="width: 140px;">Ngày Cập Nhật</th>
+              <th style="width: 80px; text-align: center;">Xóa</th>
+            </tr>
+          </thead>
+          <tbody id="memory-table-body">
+            <!-- Render danh sách bộ nhớ -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 5: CÀI ĐẶT (SETTINGS)
+         ========================================== -->
+    <section class="tab-panel" id="tab-settings">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 24px;">
+        <!-- Card 1: Cấu hình Gemini AI -->
+        <div class="glass-card">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+            <span style="font-size: 24px;">🤖</span>
+            <div>
+              <h3 style="font-size: 17px; font-weight: 700;">Cấu Hình Google Gemini API</h3>
+              <p style="font-size: 12px; color: var(--text-muted);">Trí tuệ nhân tạo hỗ trợ đọc viết tắt và nội suy đơn giá</p>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label" for="setting-gemini-key">Gemini API Key của bạn</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="password" class="form-control" id="setting-gemini-key" placeholder="AIzaSy..." style="flex: 1;">
+              <button class="btn btn-secondary" id="btn-toggle-key-visibility" type="button" title="Hiện/Ẩn Key">👁️</button>
+            </div>
+            <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+              Key được lưu trữ an toàn trong trình duyệt/máy tính của bạn và chỉ dùng để gửi yêu cầu phân tích đơn giá.
+            </span>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 20px;">
+            <label class="form-label" for="setting-gemini-model">Mô hình AI sử dụng</label>
+            <select class="form-control" id="setting-gemini-model">
+              <option value="gemini-3.8-flash" selected>Gemini 3.8 Flash (Mô hình tối tân nhất, siêu tốc độ - Khuyên dùng)</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash (Tốc độ cao)</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash (Tiêu chuẩn)</option>
+              <option value="gemini-1.5-pro">Gemini 1.5 Pro (Suy luận ngữ nghĩa chuyên sâu)</option>
+            </select>
+          </div>
+
+          <div style="display: flex; gap: 12px;">
+            <button class="btn btn-purple" id="btn-test-gemini-key">
+              <span>🔌</span> Kiểm Tra Kết Nối API
+            </button>
+            <button class="btn btn-primary" id="btn-save-gemini-settings">
+              <span>💾</span> Lưu Cài Đặt AI
+            </button>
+          </div>
+        </div>
+
+        <!-- Card 2: Cấu hình thuật toán & Dữ liệu -->
+        <div class="glass-card">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+            <span style="font-size: 24px;">⚙️</span>
+            <div>
+              <h3 style="font-size: 17px; font-weight: 700;">Thuật Toán Khớp Mờ & Quản Lý Dữ Liệu</h3>
+              <p style="font-size: 12px; color: var(--text-muted);">Tùy chỉnh ngưỡng độ khớp và sao lưu phục hồi</p>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between;">
+              <label class="form-label" for="setting-fuzzy-threshold">Ngưỡng Khớp Mờ Tối Thiểu Để Gợi Ý (%)</label>
+              <span class="mono" id="val-fuzzy-threshold" style="font-weight: 700; color: var(--accent-primary);">60%</span>
+            </div>
+            <input type="range" id="setting-fuzzy-threshold" min="40" max="90" value="60" step="5" style="width: 100%; cursor: pointer;">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 24px;">
+            <div style="display: flex; justify-content: space-between;">
+              <label class="form-label" for="setting-auto-threshold">Ngưỡng Tự Động Chấp Nhận Giá Chuẩn (%)</label>
+              <span class="mono" id="val-auto-threshold" style="font-weight: 700; color: var(--accent-secondary);">88%</span>
+            </div>
+            <input type="range" id="setting-auto-threshold" min="75" max="98" value="88" step="1" style="width: 100%; cursor: pointer;">
+          </div>
+
+          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary); text-transform: uppercase;">
+            Sao Lưu & Phục Hồi Cơ Sở Dữ Liệu
+          </h4>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" id="btn-backup-data">
+              <span>💾</span> Xuất File Sao Lưu (.json)
+            </button>
+            <input type="file" id="input-restore-file" accept=".json" style="display: none;">
+            <button class="btn btn-secondary" id="btn-restore-data">
+              <span>📤</span> Phục Hồi Dữ Liệu
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==========================================
+       MODAL 1: ÁNH XẠ CỘT EXCEL (COLUMN MAPPING)
+       ========================================== -->
+  <div class="modal-overlay" id="modal-column-mapping">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="mapping-modal-title">Ánh Xạ Cột File Excel</h3>
+        <button class="close-modal-btn" data-close="modal-column-mapping">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: var(--text-secondary);">
+          Hệ thống đã tự động phán đoán các cột. Bạn có thể kiểm tra và chọn lại cho chính xác với cấu trúc file của bạn:
+        </p>
+
+        <div style="margin-top: 16px; display: flex; gap: 16px; align-items: center;">
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label" for="map-sheet-select">Chọn Sheet Dữ Liệu</label>
+            <select class="form-control" id="map-sheet-select"></select>
+          </div>
+          <div class="form-group" style="width: 140px;">
+            <label class="form-label" for="map-start-row">Dòng Bắt Đầu Dữ Liệu</label>
+            <input type="number" class="form-control" id="map-start-row" min="1" value="2">
+          </div>
+        </div>
+
+        <!-- Khối đặt tên Bộ Đơn Giá theo tên file Excel -->
+        <div id="map-catalog-info-container" style="display: none; margin-top: 14px; margin-bottom: 14px; padding: 12px 14px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: var(--radius-sm);">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="map-catalog-name" style="color: var(--accent-primary); font-weight: 600; display: flex; align-items: center; gap: 6px;">
+              <span>📁</span> Tên File Bảng Giá Đưa Lên (Ghi nhớ thành bộ đơn giá):
+            </label>
+            <input type="text" class="form-control" id="map-catalog-name" placeholder="Tự động lấy theo tên file Excel...">
+            <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">
+              Hệ thống sẽ lưu nhớ dữ liệu này thành một File Bảng Giá độc lập mang tên trên để bạn tùy chọn dùng đơn giá nào.
+            </span>
+          </div>
+        </div>
+
+        <div class="mapping-grid" id="mapping-fields-container">
+          <!-- Các trường ánh xạ sẽ được render theo loại: BOQ hoặc Bảng Giá -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="modal-column-mapping">Hủy Bỏ</button>
+        <button class="btn btn-primary" id="btn-confirm-mapping">Xác Nhận & Nạp Dữ Liệu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 2: GỢI Ý & DUYỆT ĐỀ XUẤT CỦA GEMINI AI
+       ========================================== -->
+  <div class="modal-overlay" id="modal-gemini-proposal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px;">🤖</span>
+          <h3 class="modal-title">Đề Xuất Nội Suy Đơn Giá Từ Gemini AI</h3>
+        </div>
+        <button class="close-modal-btn" data-close="modal-gemini-proposal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">
+          Mục công việc chưa có đơn giá trong BOQ:
+        </div>
+        <div style="font-size: 15px; font-weight: 600; padding: 12px; background: var(--bg-input); border-radius: var(--radius-sm); border: 1px solid var(--bg-border);" id="ai-item-description">
+          Dây cáp điện lực Cu/XLPE 4x50mm2 cấp nguồn Chiller
+        </div>
+
+        <!-- Khối đề xuất của AI -->
+        <div class="ai-proposal-box">
+          <div class="ai-header-tag">
+            <span>✨</span> Đề xuất giải mã & nội suy kỹ thuật
+          </div>
+
+          <div style="font-size: 16px; font-weight: 700; color: var(--text-main);" id="ai-decoded-name">
+            Dây cáp điện 4 ruột đồng hạ thế Cu/XLPE/PVC 4x50 mm2
+          </div>
+          <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;" id="ai-decoded-spec">
+            Quy cách: 4x50 mm2, cấp điện áp 0.6/1kV | ĐVT: m
+          </div>
+
+          <div class="ai-proposal-details">
+            <div class="ai-detail-block">
+              <span class="summary-label">Đơn Giá Vật Tư Đề Xuất</span>
+              <div class="stat-value mono" style="color: var(--accent-primary); margin-top: 4px;" id="ai-mat-price">
+                420,000 đ
+              </div>
+            </div>
+            <div class="ai-detail-block">
+              <span class="summary-label">Đơn Giá Nhân Công Đề Xuất</span>
+              <div class="stat-value mono" style="color: var(--accent-secondary); margin-top: 4px;" id="ai-lab-price">
+                65,000 đ
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 14px;">
+            <span class="summary-label">Cơ Sở Suy Luận & Tỉ Lệ Tính Toán:</span>
+            <div class="ai-reason-text" id="ai-reason-text">
+              Nội suy từ cáp 4x25mm2 (giá 280.000đ): Tiết diện 50mm2 gấp 2 lần nên lượng đồng tăng tương ứng, sau khi trừ chi phí vỏ bọc tỷ lệ tăng khoảng 1.5 lần đơn giá.
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+          <span>🛡️</span> <em>Nguyên tắc an toàn: Đơn giá chỉ được điền vào bảng BOQ khi bạn bấm "Chấp Nhận Áp Giá".</em>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="modal-gemini-proposal">Bỏ Qua</button>
+        <button class="btn btn-purple" id="btn-accept-ai-proposal">
+          <span>✅</span> Chấp Nhận Áp Giá Này
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 3: DANH SÁCH GỢI Ý KHỚP MỜ (SUGGESTIONS)
+       ========================================== -->
+  <div class="modal-overlay" id="modal-suggestions">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Gợi Ý Vật Tư Phù Hợp (Xếp Hạng % Độ Khớp)</h3>
+        <button class="close-modal-btn" data-close="modal-suggestions">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+          Mục BOQ: <strong id="suggest-query-text" style="color: var(--text-main);">...</strong>
+        </div>
+        <div id="suggestions-list-container" style="display: flex; flex-direction: column; gap: 10px;">
+          <!-- Danh sách các thẻ gợi ý -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="modal-suggestions">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 4: THÊM / SỬA VẬT TƯ (ADD / EDIT)
+       ========================================== -->
+  <div class="modal-overlay" id="modal-material-form">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="material-form-title">Thêm Vật Tư Mới Vào Kho Bảng Giá</h3>
+        <button class="close-modal-btn" data-close="modal-material-form">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="material-form" onsubmit="return false;">
+          <input type="hidden" id="mat-form-id">
+          <div class="mapping-grid">
+            <div class="form-group">
+              <label class="form-label" for="mat-form-code">Mã Hiệu Vật Tư</label>
+              <input type="text" class="form-control" id="mat-form-code" placeholder="VD: E-CDV-08">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="mat-form-name">Tên Vật Tư Chuẩn *</label>
+              <input type="text" class="form-control" id="mat-form-name" required placeholder="VD: Dây điện đơn ruột đồng bọc PVC">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="mat-form-spec">Thông Số / Quy Cách</label>
+              <input type="text" class="form-control" id="mat-form-spec" placeholder="VD: Cu/PVC 1x6.0 mm2">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="mat-form-unit">Đơn Vị Tính (ĐVT) *</label>
+              <input type="text" class="form-control" id="mat-form-unit" required placeholder="m, Cái, Bộ, kg, m2...">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="mat-form-matprice">Đơn Giá Vật Tư (VNĐ) *</label>
+              <input type="number" class="form-control mono" id="mat-form-matprice" required min="0" placeholder="0">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="mat-form-labprice">Đơn Giá Nhân Công (VNĐ)</label>
+              <input type="number" class="form-control mono" id="mat-form-labprice" min="0" placeholder="0">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="mat-form-system">Phân Hệ Cơ Điện</label>
+              <select class="form-control" id="mat-form-system">
+                <option value="Hệ Điện">Hệ Điện (Electrical)</option>
+                <option value="Hệ Nước">Hệ Cấp Thoát Nước (Plumbing)</option>
+                <option value="Hệ HVAC">Hệ HVAC (Điều Hòa - Thông Gió)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="mat-form-supplier">Nhà Cung Cấp / Hãng</label>
+              <input type="text" class="form-control" id="mat-form-supplier" placeholder="Cadivi, Schneider, Tiền Phong...">
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="modal-material-form">Hủy</button>
+        <button class="btn btn-primary" id="btn-save-material-form">Lưu Vật Tư</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 5: THÊM QUY TẮC GHÉP GIÁ THỦ CÔNG
+       ========================================== -->
+  <div class="modal-overlay" id="modal-add-memory">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3 class="modal-title">➕ Thêm Quy Tắc Ghép Giá Vào Bộ Nhớ</h3>
+        <button class="close-modal-btn" data-close="modal-add-memory">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 16px;">
+          <div style="display: flex; gap: 10px; margin-bottom: 16px; border-bottom: 1px solid var(--bg-border); padding-bottom: 8px;">
+            <button class="btn btn-secondary btn-sm active" id="btn-mem-mode-library" type="button">
+              <span>📚</span> Chọn Vật Tư Có Sẵn Từ Kho Bảng Giá
+            </button>
+            <button class="btn btn-secondary btn-sm" id="btn-mem-mode-custom" type="button">
+              <span>✍️</span> Nhập Đơn Giá Tùy Chỉnh Hoàn Toàn
+            </button>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label class="form-label" for="mem-input-boq-phrase">Cụm từ / Tên mô tả trong BOQ cần ghi nhớ *</label>
+            <input type="text" class="form-control" id="mem-input-boq-phrase" required placeholder="VD: Dây Cadivi Cu/PVC 1x2.5mm2 hoặc Dây chiếu sáng 1x2.5">
+            <span style="font-size: 11px; color: var(--text-muted); margin-top: 3px;">
+              Khi phần mềm gặp lại cụm từ này trong bất kỳ file BOQ nào, hệ thống sẽ tự động áp giá ngay 100%.
+            </span>
+          </div>
+
+          <!-- Nhánh 1: Chọn từ Kho Bảng Giá -->
+          <div id="mem-panel-library">
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label class="form-label" for="mem-select-material">Chọn vật tư chuẩn từ kho giá *</label>
+              <select class="form-control" id="mem-select-material" style="font-size: 13px;">
+                <option value="">-- Đang tải danh sách vật tư --</option>
+              </select>
+            </div>
+            <div id="mem-preview-selected-mat" style="display: none; background: var(--bg-card); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--bg-border); font-size: 12px; margin-bottom: 14px;">
+              <div style="font-weight: 600; color: var(--accent-primary);" id="mem-prev-name">...</div>
+              <div style="color: var(--text-muted); margin-top: 2px;" id="mem-prev-spec">Quy cách: ... | ĐVT: ...</div>
+              <div style="display: flex; gap: 16px; margin-top: 6px; font-weight: 600;">
+                <span style="color: var(--accent-secondary);" id="mem-prev-matprice">Giá VT: 0 đ</span>
+                <span style="color: #60a5fa;" id="mem-prev-labprice">Giá NC: 0 đ</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nhánh 2: Nhập tùy chỉnh hoàn toàn -->
+          <div id="mem-panel-custom" style="display: none;">
+            <div class="mapping-grid">
+              <div class="form-group">
+                <label class="form-label" for="mem-custom-name">Tên vật tư chuẩn *</label>
+                <input type="text" class="form-control" id="mem-custom-name" placeholder="VD: Dây điện đơn CV 2.5 mm2">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="mem-custom-spec">Quy cách / Thông số</label>
+                <input type="text" class="form-control" id="mem-custom-spec" placeholder="VD: Cu/PVC 1x2.5mm2">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="mem-custom-unit">Đơn vị tính (ĐVT) *</label>
+                <input type="text" class="form-control" id="mem-custom-unit" placeholder="m, Cái, Bộ...">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="mem-custom-matprice">Đơn giá Vật tư (VNĐ) *</label>
+                <input type="number" class="form-control mono" id="mem-custom-matprice" min="0" placeholder="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="mem-custom-labprice">Đơn giá Nhân công (VNĐ)</label>
+                <input type="number" class="form-control mono" id="mem-custom-labprice" min="0" placeholder="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="mem-custom-system">Phân hệ Cơ Điện</label>
+                <select class="form-control" id="mem-custom-system">
+                  <option value="Hệ Điện">Hệ Điện (Electrical)</option>
+                  <option value="Hệ Nước">Hệ Cấp Thoát Nước (Plumbing)</option>
+                  <option value="Hệ HVAC">Hệ HVAC (Điều Hòa - Thông Gió)</option>
+                  <option value="Cơ Điện Chung">Cơ Điện Chung</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="modal-add-memory">Hủy</button>
+        <button class="btn btn-primary" id="btn-save-manual-memory">
+          <span>💾</span> Lưu Quy Tắc Ghép Giá
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 6: QUẢN LÝ DANH SÁCH FILE BẢNG GIÁ & ĐỘ ƯU TIÊN
+       ========================================== -->
+  <div class="modal-overlay" id="modal-price-catalogs">
+    <div class="modal-content" style="max-width: 900px; width: 95%;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 22px;">📚</span>
+          <div>
+            <h3 class="modal-title">Quản Lý Danh Sách File Bảng Giá & Thứ Tự Ưu Tiên</h3>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+              Ghi nhớ từng file bảng giá đã đưa lên, chọn bộ giá kích hoạt và sắp xếp thứ tự ưu tiên tra cứu
+            </div>
+          </div>
+        </div>
+        <button class="close-modal-btn" data-close="modal-price-catalogs">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert-info" style="margin-bottom: 16px; padding: 12px 16px; background: rgba(59, 130, 246, 0.09); border-left: 4px solid var(--accent-primary); border-radius: 4px; font-size: 13px; line-height: 1.5;">
+          💡 <strong>Quy tắc tra cứu & tự nội suy:</strong>
+          <ul style="margin: 6px 0 0 18px; padding: 0;">
+            <li>Khi tự động áp giá cho BOQ, hệ thống sẽ tra cứu theo thứ tự từ <strong>File Ưu Tiên 1</strong> $\rightarrow$ <strong>File Ưu Tiên 2</strong> $\rightarrow$ ...</li>
+            <li>Các file ở trạng thái <strong>Tắt (OFF)</strong> sẽ tạm thời không tham gia vào quá trình áp giá.</li>
+            <li>Khi một mục BOQ không có trong bất kỳ file nào, hệ thống sẽ <strong>tự động nội suy</strong> từ các danh mục tương tự (dây, cáp, ống, MCB...) trong các file đang bật!</li>
+            <li>Bạn có thể bấm biểu tượng 🗑️ để <strong>xóa riêng từng file</strong> và toàn bộ vật tư của file đó mà tuyệt đối không ảnh hưởng đến các file khác.</li>
+          </ul>
+        </div>
+
+        <div class="table-container" style="max-height: 400px; border: 1px solid var(--bg-border); border-radius: var(--radius-sm);">
+          <table class="data-table" id="catalogs-management-table">
+            <thead>
+              <tr>
+                <th style="width: 110px; text-align: center;">Ưu Tiên</th>
+                <th style="min-width: 250px;">Tên File / Bộ Đơn Giá</th>
+                <th style="width: 140px; text-align: center;">Ngày Tải Lên</th>
+                <th style="width: 110px; text-align: right;">Số Vật Tư</th>
+                <th style="width: 110px; text-align: center;">Kích Hoạt</th>
+                <th style="width: 90px; text-align: center;">Xóa File</th>
+              </tr>
+            </thead>
+            <tbody id="catalogs-management-table-body">
+              <!-- Render động danh sách các file bảng giá -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <button class="btn btn-secondary" id="btn-modal-import-new-price">
+          <span>➕</span> Nạp Thêm File Excel Bảng Giá Mới
+        </button>
+        <button class="btn btn-primary" data-close="modal-price-catalogs">
+          <span>✅</span> Đóng & Áp Dụng Cấu Hình
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vùng hiển thị thông báo Toast -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Các tệp logic hệ thống -->
+  <script src="js/database.js"></script>
+  <script src="js/fuzzy_matcher.js"></script>
+  <script src="js/excel_processor.js"></script>
+  <script src="js/gemini_api.js"></script>
+  <script src="js/sample_data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

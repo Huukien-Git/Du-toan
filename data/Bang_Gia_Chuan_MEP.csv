@@ -1,0 +1,38 @@
+Mã Hiệu,Tên Vật Tư Chuẩn,Thông Số / Quy Cách,ĐVT,Đơn Giá Vật Tư (VNĐ),Đơn Giá Nhân Công (VNĐ),Phân Hệ,Nhà Cung Cấp
+E-CDV-01,Dây điện đơn ruột đồng bọc PVC,Cu/PVC 1x1.5 mm2 - 450/750V,m,4200,6500,Hệ Điện,Cadivi
+E-CDV-02,Dây điện đơn ruột đồng bọc PVC,Cu/PVC 1x2.5 mm2 - 450/750V,m,6800,7000,Hệ Điện,Cadivi
+E-CDV-03,Dây điện đơn ruột đồng bọc PVC,Cu/PVC 1x4.0 mm2 - 450/750V,m,10500,8500,Hệ Điện,Cadivi
+E-CDV-04,Dây điện đôi ruột đồng bọc PVC,Cu/PVC/PVC 2x1.5 mm2,m,9500,8000,Hệ Điện,Cadivi
+E-CDV-05,Dây điện đôi ruột đồng bọc PVC,Cu/PVC/PVC 2x2.5 mm2,m,15200,9500,Hệ Điện,Cadivi
+E-CDV-06,Cáp điện lực hạ thế 4 ruột,Cu/XLPE/PVC 4x16 mm2 - 0.6/1kV,m,185000,35000,Hệ Điện,Cadivi
+E-CDV-07,Cáp điện lực hạ thế 4 ruột,Cu/XLPE/PVC 4x25 mm2 - 0.6/1kV,m,280000,48000,Hệ Điện,Cadivi
+E-SCH-01,Aptomat tép tự động MCB 1 cực,1P 16A 6kA Easy9,Cái,65000,30000,Hệ Điện,Schneider
+E-SCH-02,Aptomat tép tự động MCB 1 cực,1P 20A 6kA Easy9,Cái,68000,30000,Hệ Điện,Schneider
+E-SCH-03,Aptomat tép tự động MCB 2 cực,2P 32A 6kA Easy9,Cái,165000,45000,Hệ Điện,Schneider
+E-SCH-04,Aptomat khối tự động MCCB 3 cực,3P 100A 18kA EasyPact CVS,Cái,1450000,250000,Hệ Điện,Schneider
+E-PNS-01,Ổ cắm đôi 3 chấu có màn che an toàn,16A 250V Wide Series,Bộ,85000,35000,Hệ Điện,Panasonic
+E-PNS-02,Công tắc đơn 1 chiều,16A 250V Wide Series,Bộ,45000,30000,Hệ Điện,Panasonic
+E-DHL-01,Đèn LED âm trần Downlight tròn,Công suất 9W D110mm ánh sáng trắng/vàng,Bộ,115000,40000,Hệ Điện,Duhal / Rạng Đông
+E-DHL-02,Đèn LED Panel tấm vuông âm trần,Kích thước 600x600mm công suất 48W,Bộ,380000,75000,Hệ Điện,Duhal / Rạng Đông
+E-TRK-01,Máng cáp điện tôn mạ kẽm kèm nắp,Kích thước 200x100mm dày 1.2mm,m,165000,60000,Hệ Điện,Sản xuất trong nước
+P-TP-01,Ống nhựa uPVC thoát nước class 2,uPVC D60x2.0mm,m,32000,28000,Hệ Nước,Tiền Phong
+P-TP-02,Ống nhựa uPVC thoát nước class 2,uPVC D90x2.9mm,m,65000,35000,Hệ Nước,Tiền Phong
+P-TP-03,Ống nhựa uPVC thoát nước class 2,uPVC D110x3.2mm,m,98000,42000,Hệ Nước,Tiền Phong
+P-TP-04,Ống nhựa uPVC thoát nước class 2,uPVC D160x4.0mm,m,195000,65000,Hệ Nước,Tiền Phong
+P-TP-05,Cút 90 độ nhựa uPVC,Co 90 uPVC D90,Cái,28000,18000,Hệ Nước,Tiền Phong
+P-TP-06,Cút 90 độ nhựa uPVC,Co 90 uPVC D110,Cái,42000,22000,Hệ Nước,Tiền Phong
+P-TP-07,Ba chạc 90 độ (Tê) nhựa uPVC,Tê uPVC D110,Cái,62000,25000,Hệ Nước,Tiền Phong
+P-PPR-01,Ống nhựa hàn nhiệt PPR PN10 (Nước lạnh),PPR D25x2.3mm,m,25000,22000,Hệ Nước,Tiền Phong / Dekko
+P-PPR-02,Ống nhựa hàn nhiệt PPR PN10 (Nước lạnh),PPR D32x2.9mm,m,38000,26000,Hệ Nước,Tiền Phong / Dekko
+P-PPR-03,Ống nhựa hàn nhiệt PPR PN20 (Nước nóng),PPR D25x4.2mm,m,45000,26000,Hệ Nước,Tiền Phong / Dekko
+P-VAL-01,Van cổng đồng nối ren,DN25 - Đồng thau mạ niken,Cái,175000,50000,Hệ Nước,Miha / Minh Hòa
+P-VAL-02,Van cổng đồng nối ren,DN50 - Đồng thau mạ niken,Cái,450000,85000,Hệ Nước,Miha / Minh Hòa
+P-VAL-03,Van bướm tay gạt thân gang cánh inox,DN100 PN16,Cái,1250000,220000,Hệ Nước,Shinyi
+P-PMP-01,Máy bơm ly tâm trục ngang cấp nước sinh hoạt,Công suất 3.7kW (5HP) Q=15-30 m3/h H=35-20m,Bộ,24500000,1800000,Hệ Nước,Ebara
+H-DCT-01,Đường ống gió vuông tôn mạ kẽm,Tôn mạ kẽm dày 0.75mm nẹp TDC,m2,240000,95000,Hệ HVAC,Gia công nhà xưởng
+H-DCT-02,Đường ống gió vuông tôn mạ kẽm có bảo ôn,Tôn dày 0.75mm bọc bông thủy tinh cách nhiệt dày 25mm có bạc,m2,360000,135000,Hệ HVAC,Gia công nhà xưởng
+H-DIF-01,Miệng gió khuếch tán vuông 4 hướng,Kích thước cổ 450x450mm mặt 600x600mm nhôm sơn tĩnh điện,Cái,290000,70000,Hệ HVAC,Sản xuất trong nước
+H-DIF-02,Miệng gió hút / hồi kèm lưới lọc bụi,Kích thước 600x600mm nan bầu dục mở được,Cái,380000,85000,Hệ HVAC,Sản xuất trong nước
+H-VLV-01,Van dập lửa cầu chì ống gió (FD),Kích thước 400x300mm kèm cầu chì 72 độ C,Cái,420000,90000,Hệ HVAC,Sản xuất trong nước
+H-FAN-01,Quạt hút thông gió gắn trần nối ống,Lưu lượng Q=250 m3/h công suất 35W D100,Bộ,720000,120000,Hệ HVAC,Nedfon
+H-AC-01,Dàn lạnh âm trần nối ống gió trung tâm VRV,Công suất làm lạnh 5.0HP (~48000 BTU/h),Bộ,32500000,2500000,Hệ HVAC,Daikin

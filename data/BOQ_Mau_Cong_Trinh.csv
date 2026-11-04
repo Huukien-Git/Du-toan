@@ -1,0 +1,32 @@
+STT,Mã Hiệu,Nội Dung Công Việc / Diễn Giải Vật Tư,Đơn Vị Tính,Khối Lượng
+I,,HỆ THỐNG CẤP ĐIỆN VÀ CHIẾU SÁNG,,
+1,,Dây điện Cu/PVC 1x1.5mm2 luồn trong ống,m,1500
+2,,Dây đồng đơn bọc PVC 1x2.5 mm2,m,2200
+3,,Dây dẫn điện Cu/PVC 1x4.0mm2,m,800
+4,,Cáp điện Cu/XLPE/PVC 4x16mm2 cấp nguồn tổng,m,120
+5,,Aptomat 1P 16A Schneider,Cái,45
+6,,Cầu dao tự động MCB 2P 32A,Cái,18
+7,,MCCB 3 pha 100A 18kA tủ MSB,Cái,2
+8,,Đèn LED downlight âm trần 9W D110 Duhal,Bộ,160
+9,,Đèn tấm panel 600x600 48W văn phòng,Bộ,36
+10,,Ổ cắm đôi 3 chấu có tiếp địa Panasonic,Bộ,85
+II,,HỆ THỐNG CẤP THOÁT NƯỚC,,
+11,,Ống thoát nước uPVC D90 Tiền Phong C2,m,350
+12,,Ống nhựa uPVC D110x3.2mm thoát phân,m,280
+13,,Co 90 độ uPVC D110,Cái,64
+14,,Tê đều nhựa uPVC D110,Cái,32
+15,,Ống hàn nhiệt PPR D25 nước lạnh PN10,m,420
+16,,Van chặn đồng nối ren DN50,Cái,8
+17,,Van bướm tay gạt DN100 mặt bích,Cái,4
+18,,Máy bơm ly tâm trục ngang cấp nước 3.7kW,Bộ,2
+III,,HỆ THỐNG ĐIỀU HÒA & THÔNG GIÓ (HVAC),,
+19,,Ống gió tôn mạ kẽm dày 0.75mm cấp gió tươi,m2,450
+20,,Ống gió tôn 0.75 bọc bông cách nhiệt 25mm,m2,320
+21,,Cửa gió khuếch tán 4 hướng 600x600 nhôm,Cái,48
+22,,Van dập lửa FD 400x300,Cái,6
+23,,Quạt hút âm trần nối ống gió Nedfon 35W,Bộ,12
+24,,Dàn lạnh giấu trần nối ống gió VRV 5HP Daikin,Bộ,8
+IV,,VẬT TƯ CẦN NỘI SUY / CHƯA CÓ TRONG KHO (EDGE CASES),,
+25,,Dây cáp điện lực Cu/XLPE 4x50mm2 cấp nguồn Chiller,m,60
+26,,Van bướm tay gạt thân gang cánh inox DN125 PN16,Cái,2
+27,,Côn thu ống nhựa uPVC D110/90 Tiền Phong,Cái,15
