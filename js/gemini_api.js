@@ -8,18 +8,18 @@
 
 class GeminiService {
   constructor() {
-    this.displayName = 'Gemini 3.8 Flash';
+    this.displayName = 'Gemini 2.0 Flash';
     this.cachedWorkingEndpoint = null;
   }
 
   /**
    * Tự động dò tìm danh sách model được phép sử dụng từ Google AI Studio (ModelService.ListModels)
    */
-  async discoverBestWorkingModel(apiKey) {
+  async discoverBestWorkingModel(apiKey, preferredModel = 'gemini-2.0-flash') {
     if (!apiKey) return null;
-    const cleanKey = apiKey.trim();
+    let cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
 
-    if (this.cachedWorkingEndpoint && this.cachedWorkingEndpoint.apiKey === cleanKey) {
+    if (this.cachedWorkingEndpoint && this.cachedWorkingEndpoint.apiKey === cleanKey && (!preferredModel || this.cachedWorkingEndpoint.modelPath.includes(preferredModel))) {
       return this.cachedWorkingEndpoint;
     }
 
@@ -45,23 +45,26 @@ class GeminiService {
           );
 
           if (contentModels.length > 0) {
-            const modelPriorities = [
-              m => m.name.includes('gemini-2.0-flash'),
-              m => m.name.includes('gemini-2.5-flash'),
-              m => m.name.includes('gemini-1.5-flash-latest'),
-              m => m.name.includes('gemini-1.5-flash-002'),
-              m => m.name.includes('gemini-1.5-flash-001'),
-              m => m.name.includes('gemini-1.5-flash'),
-              m => m.name.includes('gemini-2.0'),
-              m => m.name.includes('gemini-1.5-pro'),
-              m => m.name.includes('gemini-pro'),
-              m => true
-            ];
-
+            const cleanPref = (preferredModel || '').replace('models/', '').toLowerCase();
             let selectedModel = null;
-            for (const matcher of modelPriorities) {
-              selectedModel = contentModels.find(matcher);
-              if (selectedModel) break;
+
+            if (cleanPref) {
+              selectedModel = contentModels.find(m => m.name.toLowerCase().includes(cleanPref));
+            }
+
+            if (!selectedModel) {
+              const modelPriorities = [
+                m => m.name.includes('gemini-2.0-flash'),
+                m => m.name.includes('gemini-1.5-flash'),
+                m => m.name.includes('gemini-1.5-pro'),
+                m => m.name.includes('gemini-2.0'),
+                m => true
+              ];
+
+              for (const matcher of modelPriorities) {
+                selectedModel = contentModels.find(matcher);
+                if (selectedModel) break;
+              }
             }
 
             if (!selectedModel) selectedModel = contentModels[0];
@@ -76,7 +79,7 @@ class GeminiService {
               version: ver,
               modelPath: modelPath,
               rawName: selectedModel.name,
-              displayName: selectedModel.displayName || this.displayName
+              displayName: selectedModel.displayName || modelPath.replace('models/', '')
             };
 
             this.cachedWorkingEndpoint = workingConfig;
@@ -88,10 +91,11 @@ class GeminiService {
       }
     }
 
+    const fallbackPath = preferredModel ? (preferredModel.startsWith('models/') ? preferredModel : 'models/' + preferredModel) : 'models/gemini-2.0-flash';
     return {
       apiKey: cleanKey,
       version: 'v1beta',
-      modelPath: 'models/gemini-1.5-flash-latest',
+      modelPath: fallbackPath,
       isFallback: true,
       lastApiError: lastApiError
     };
@@ -100,43 +104,72 @@ class GeminiService {
   /**
    * Kiểm tra tính hợp lệ của API Key
    */
-  async testApiKey(apiKey, model = 'gemini-3.8-flash') {
+  async testApiKey(apiKey, model = 'gemini-2.0-flash') {
     if (!apiKey) {
       return { success: false, message: 'Vui lòng nhập Google Gemini API Key của bạn!' };
     }
 
-    const cleanKey = apiKey.trim();
-    const discovered = await this.discoverBestWorkingModel(cleanKey);
+    let cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
+
+    // Kiểm tra nhanh định dạng key
+    if (cleanKey.startsWith('sk-')) {
+      return {
+        success: false,
+        message: 'Key bạn nhập có tiền tố "sk-...", đây là API Key của OpenAI (ChatGPT), không phải của Google Gemini. Vui lòng bấm vào liên kết "Lấy API Key miễn phí tại Google AI Studio" ở trên để tạo key chuẩn (bắt đầu bằng AIzaSy)!'
+      };
+    }
+
+    if (cleanKey.length < 25) {
+      return {
+        success: false,
+        message: 'API Key quá ngắn hoặc không đúng định dạng. Chuỗi Google Gemini API Key hợp lệ thường có độ dài khoảng 39 ký tự và bắt đầu bằng "AIzaSy...".'
+      };
+    }
+
+    const cleanModel = (model || 'gemini-2.0-flash').replace('models/', '');
+    const discovered = await this.discoverBestWorkingModel(cleanKey, cleanModel);
 
     const candidateConfigs = [];
     if (discovered && !discovered.isFallback) {
       candidateConfigs.push(discovered);
     }
 
-    const fallbacks = [
-      { version: 'v1beta', modelPath: 'models/gemini-1.5-flash-latest' },
-      { version: 'v1beta', modelPath: 'models/gemini-2.0-flash-exp' },
-      { version: 'v1beta', modelPath: 'models/gemini-1.5-flash-002' },
-      { version: 'v1beta', modelPath: 'models/gemini-1.5-flash-001' },
-      { version: 'v1', modelPath: 'models/gemini-1.5-flash' }
-    ];
+    // Luôn ưu tiên thử model người dùng đã chọn trước
+    candidateConfigs.push(
+      { version: 'v1beta', modelPath: `models/${cleanModel}` },
+      { version: 'v1beta', modelPath: 'models/gemini-2.0-flash' },
+      { version: 'v1beta', modelPath: 'models/gemini-1.5-flash' },
+      { version: 'v1beta', modelPath: 'models/gemini-1.5-pro' }
+    );
 
-    candidateConfigs.push(...fallbacks);
+    // Loại bỏ các config trùng lặp
+    const uniqueConfigs = [];
+    const seen = new Set();
+    for (const c of candidateConfigs) {
+      const id = `${c.version}:${c.modelPath}`;
+      if (!seen.has(id)) {
+        seen.add(id);
+        uniqueConfigs.push(c);
+      }
+    }
 
     let lastError = discovered?.lastApiError || null;
 
-    for (const cfg of candidateConfigs) {
+    for (const cfg of uniqueConfigs) {
       const res = await this._callTestEndpoint(cleanKey, cfg.version, cfg.modelPath);
       if (res.success) {
+        const activeName = cfg.modelPath.replace('models/', '');
+        this.displayName = activeName;
         this.cachedWorkingEndpoint = {
           apiKey: cleanKey,
           version: cfg.version,
-          modelPath: cfg.modelPath
+          modelPath: cfg.modelPath,
+          displayName: activeName
         };
 
         return {
           success: true,
-          message: `Kết nối thành công tới mô hình ${this.displayName} (Google AI Studio)! Hệ thống đã sẵn sàng hoạt động.`
+          message: `Kết nối thành công tới mô hình ${activeName} (Google AI Studio)! Hệ thống đã sẵn sàng phân tích BOQ.`
         };
       }
       lastError = res.message;
@@ -147,7 +180,7 @@ class GeminiService {
       return {
         success: true,
         isLocationWarning: true,
-        message: 'Google AI đang giới hạn vùng IP Việt Nam. Hệ thống đã kích hoạt sẵn "Bộ Máy AI Nội Suy Kỹ Thuật Cơ Điện" nội bộ để bạn áp giá tự động bình thường! (Nếu muốn dùng trực tiếp máy chủ Google tại Mỹ, bạn chỉ cần bật 1.1.1.1 WARP).'
+        message: 'Google AI đang có chính sách giới hạn vùng IP Việt Nam đối với một số tài khoản. Hệ thống đã kích hoạt sẵn "Bộ Máy AI Nội Suy Kỹ Thuật Cơ Điện" nội bộ để bạn áp giá tự động bình thường! (Nếu muốn gọi trực tiếp Google AI, bạn chỉ cần bật 1.1.1.1 WARP).'
       };
     }
 
@@ -186,14 +219,15 @@ class GeminiService {
   /**
    * Nhờ AI phân tích ngữ nghĩa viết tắt và nội suy đơn giá vật tư & nhân công
    */
-  async analyzeAndInterpolate(unpricedDescription, referenceCandidates, apiKey, model = 'gemini-3.8-flash') {
-    const cleanKey = (apiKey || '').trim();
+  async analyzeAndInterpolate(unpricedDescription, referenceCandidates, apiKey, model = 'gemini-2.0-flash') {
+    const cleanKey = (apiKey || '').trim().replace(/^["']|["']$/g, '');
 
     // 1. Thử gọi Google Gemini AI nếu có key
     if (cleanKey) {
+      const cleanModel = (model || 'gemini-2.0-flash').replace('models/', '');
       let workingConfig = this.cachedWorkingEndpoint;
       if (!workingConfig || workingConfig.apiKey !== cleanKey) {
-        workingConfig = await this.discoverBestWorkingModel(cleanKey);
+        workingConfig = await this.discoverBestWorkingModel(cleanKey, cleanModel);
       }
 
       const refItemsSummary = (referenceCandidates || []).slice(0, 10).map((item, i) => {
@@ -228,16 +262,27 @@ YÊU CẦU:
 `;
 
       const candidateConfigs = [];
-      if (workingConfig) candidateConfigs.push(workingConfig);
-
+      candidateConfigs.push({ version: 'v1beta', modelPath: `models/${cleanModel}` });
+      if (workingConfig && workingConfig.modelPath !== `models/${cleanModel}`) {
+        candidateConfigs.push(workingConfig);
+      }
       candidateConfigs.push(
-        { version: 'v1beta', modelPath: 'models/gemini-1.5-flash-latest' },
-        { version: 'v1beta', modelPath: 'models/gemini-2.0-flash-exp' },
-        { version: 'v1beta', modelPath: 'models/gemini-1.5-flash-002' },
-        { version: 'v1', modelPath: 'models/gemini-1.5-flash' }
+        { version: 'v1beta', modelPath: 'models/gemini-2.0-flash' },
+        { version: 'v1beta', modelPath: 'models/gemini-1.5-flash' },
+        { version: 'v1beta', modelPath: 'models/gemini-1.5-pro' }
       );
 
-      for (const cfg of candidateConfigs) {
+      const uniqueConfigs = [];
+      const seen = new Set();
+      for (const c of candidateConfigs) {
+        const id = `${c.version}:${c.modelPath}`;
+        if (!seen.has(id)) {
+          seen.add(id);
+          uniqueConfigs.push(c);
+        }
+      }
+
+      for (const cfg of uniqueConfigs) {
         try {
           const url = `https://generativelanguage.googleapis.com/${cfg.version}/${cfg.modelPath}:generateContent?key=${cleanKey}`;
           const payload = {
@@ -257,15 +302,17 @@ YÊU CẦU:
             const result = this._extractJsonFromText(rawOutput);
 
             if (result) {
+              const activeModel = cfg.modelPath.replace('models/', '');
               this.cachedWorkingEndpoint = {
                 apiKey: cleanKey,
                 version: cfg.version,
-                modelPath: cfg.modelPath
+                modelPath: cfg.modelPath,
+                displayName: activeModel
               };
 
               return {
                 success: true,
-                modelUsed: this.displayName,
+                modelUsed: activeModel,
                 data: {
                   decodedName: result.decodedName || unpricedDescription,
                   spec: result.spec || '',
@@ -277,9 +324,12 @@ YÊU CẦU:
                 }
               };
             }
+          } else {
+            const errData = await response.json().catch(() => ({}));
+            console.warn(`[Gemini API] Lỗi endpoint ${cfg.modelPath}:`, errData.error?.message || response.statusText);
           }
         } catch (err) {
-          // Bỏ qua lỗi và thử phương án tiếp theo
+          console.warn(`[Gemini API] Ngoại lệ khi gọi ${cfg.modelPath}:`, err.message);
         }
       }
     }

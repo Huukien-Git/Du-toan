@@ -787,7 +787,7 @@ class DatabaseManager {
   async getSettings() {
     const defaultSettings = {
       geminiApiKey: '',
-      geminiModel: 'gemini-3.8-flash',
+      geminiModel: 'gemini-2.0-flash',
       minFuzzyThreshold: 60, // Ngưỡng tối thiểu đề xuất gợi ý (%)
       autoMatchThreshold: 88, // Ngưỡng tự động chấp nhận giá cao (%)
       theme: 'dark', // Giao diện tối mặc định hiện đại
@@ -802,7 +802,11 @@ class DatabaseManager {
         const request = store.get('app_config');
         request.onsuccess = () => {
           if (request.result && request.result.value) {
-            resolve({ ...defaultSettings, ...request.result.value });
+            const cfg = { ...defaultSettings, ...request.result.value };
+            if (cfg.geminiModel === 'gemini-3.8-flash' || cfg.geminiModel === 'gemini-2.5-flash') {
+              cfg.geminiModel = 'gemini-2.0-flash';
+            }
+            resolve(cfg);
           } else {
             resolve(defaultSettings);
           }
@@ -811,7 +815,12 @@ class DatabaseManager {
       });
     } else {
       const data = localStorage.getItem(this.storageKeyPrefix + 'settings');
-      return data ? { ...defaultSettings, ...JSON.parse(data) } : defaultSettings;
+      if (!data) return defaultSettings;
+      const cfg = { ...defaultSettings, ...JSON.parse(data) };
+      if (cfg.geminiModel === 'gemini-3.8-flash' || cfg.geminiModel === 'gemini-2.5-flash') {
+        cfg.geminiModel = 'gemini-2.0-flash';
+      }
+      return cfg;
     }
   }
 

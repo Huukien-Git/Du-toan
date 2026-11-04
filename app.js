@@ -390,8 +390,9 @@ class AppController {
         btnTestGemini.innerHTML = '<span>🔌</span> Kiểm Tra Kết Nối API';
 
         if (res.success) {
-          // Tự động lưu luôn key khi kiểm tra kết nối thành công!
+          // Tự động lưu luôn key và model khi kiểm tra kết nối thành công!
           this.settings.geminiApiKey = key;
+          this.settings.geminiModel = model;
           await window.dbManager.saveSettings(this.settings);
           this.showToast(res.message, 'success');
         } else {
@@ -775,7 +776,7 @@ class AppController {
           tr.classList.add('low-match-row');
         }
 
-        // Tô màu tím nhạt nếu dòng do AI 3.8 Flash nội suy
+        // Tô màu tím nhạt nếu dòng do AI Gemini nội suy
         if (item.matchType === 'ai' || item.matchType === 'interpolated') {
           tr.classList.add('ai-row');
         }
@@ -792,7 +793,7 @@ class AppController {
         } else if (item.matchType === 'interpolated') {
           badgeHtml = `<span class="badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); font-weight: 600;" title="${item.interpolatedReason || 'Tự động nội suy từ danh mục quy cách tương tự'}">✨ ${item.matchScore}% Nội suy</span>`;
         } else if (item.matchType === 'ai') {
-          badgeHtml = `<span class="badge badge-purple" title="${item.aiData?.reasoning || 'AI 3.8 Flash nội suy'}">🤖 AI 3.8 Flash (${item.matchScore}%)</span>`;
+          badgeHtml = `<span class="badge badge-purple" title="${item.aiData?.reasoning || 'AI Gemini nội suy'}">🤖 AI Gemini (${item.matchScore}%)</span>`;
         } else if (item.matchType === 'manual') {
           badgeHtml = `<span class="badge badge-blue">Nhập tay</span>`;
         } else if (item.matchScore >= 80) {
@@ -830,7 +831,7 @@ class AppController {
           <button class="btn btn-secondary btn-sm btn-save-memory-row" title="Lưu ngay tên BOQ và đơn giá hiện tại vào Bộ Nhớ Quy Tắc" onclick="window.appController.saveRowToMemory(${index})">
             <span>💾</span> Lưu Quy Tắc
           </button>
-          <button class="btn btn-purple btn-sm" style="padding: 4px 7px;" title="Gọi AI 3.8 Flash phân tích và nội suy riêng cho dòng này" onclick="window.appController.callGeminiForRow(${index})">
+          <button class="btn btn-purple btn-sm" style="padding: 4px 7px;" title="Gọi AI Gemini phân tích và nội suy riêng cho dòng này" onclick="window.appController.callGeminiForRow(${index})">
             <span>🤖</span>
           </button>
         `;
@@ -1095,7 +1096,7 @@ class AppController {
     }
 
     this.activeAIPendingRowIndex = rowIndex;
-    this.showToast('Đang gửi yêu cầu phân tích tới AI Gemini 3.8 Flash...', 'info');
+    this.showToast('Đang gửi yêu cầu phân tích tới AI Gemini...', 'info');
 
     // Tìm các vật tư tương đồng gần nhất làm dữ liệu tham chiếu cho AI từ các file bảng giá đang kích hoạt
     const activeMaterials = await window.dbManager.getActiveMaterialsWithPriorities();
@@ -1106,7 +1107,7 @@ class AppController {
       item.description,
       candidates,
       apiKey,
-      this.settings.geminiModel || 'gemini-3.8-flash'
+      this.settings.geminiModel || 'gemini-2.0-flash'
     );
 
     if (res.success && res.data) {
@@ -1170,7 +1171,7 @@ class AppController {
   // ==========================================
 
   /**
-   * Tự động chạy AI 3.8 Flash cho toàn bộ các dòng chưa có giá hoặc khớp < 70% (Phương án A)
+   * Tự động chạy AI Gemini cho toàn bộ các dòng chưa có giá hoặc khớp < 70% (Phương án A)
    */
   async runAIBatch() {
     const apiKey = this.getEffectiveApiKey();
@@ -1220,7 +1221,7 @@ class AppController {
       const pct = Math.round(((i + 1) / total) * 100);
       progressBar.style.width = `${pct}%`;
       progressPercent.textContent = `${pct}% (${i + 1}/${total})`;
-      progressText.textContent = `AI 3.8 Flash đang phân tích & nội suy dòng ${i + 1}/${total}: "${item.description.slice(0, 32)}..."`;
+      progressText.textContent = `AI Gemini đang phân tích & nội suy dòng ${i + 1}/${total}: "${item.description.slice(0, 32)}..."`;
 
       // Tìm ứng viên tham chiếu trong các file bảng giá đang kích hoạt
       const candidates = window.fuzzyMatcher.findMatches(item.description, matPool, 8, 30).map(s => s.material);
@@ -1230,7 +1231,7 @@ class AppController {
           item.description,
           candidates,
           apiKey,
-          this.settings.geminiModel || 'gemini-3.8-flash'
+          this.settings.geminiModel || 'gemini-2.0-flash'
         );
 
         if (res.success && res.data) {
@@ -1267,7 +1268,7 @@ class AppController {
     this.checkAIApprovalStatus();
 
     if (successCount > 0) {
-      this.showToast(`AI 3.8 Flash đã hoàn tất phân tích & nội suy cho ${successCount} dòng! Bạn có thể phê duyệt trực tiếp trên bảng trước khi xuất Excel.`, 'success');
+      this.showToast(`AI Gemini đã hoàn tất phân tích & nội suy cho ${successCount} dòng! Bạn có thể phê duyệt trực tiếp trên bảng trước khi xuất Excel.`, 'success');
     }
   }
 
