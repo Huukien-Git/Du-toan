@@ -857,7 +857,15 @@ class AppController {
         } else if (item.matchType === 'interpolated') {
           badgeHtml = `<span class="badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); font-weight: 600;" title="${item.interpolatedReason || 'Tự động nội suy từ danh mục quy cách tương tự'}">✨ ${item.matchScore}% Nội suy</span>`;
         } else if (item.matchType === 'ai') {
-          badgeHtml = `<span class="badge badge-purple" title="${item.aiData?.reasoning || 'AI Gemini nội suy'}">🤖 AI Gemini (${item.matchScore}%)</span>`;
+          const agentId = item.aiAgent || item.aiData?.agentId || 'agent-3.8';
+          let badgeColor = 'badge-purple';
+          let badgeLabel = '🤖 Agent';
+          if (agentId === 'agent-3.8') { badgeColor = 'badge-purple'; badgeLabel = '👑 Agent 3.8'; }
+          else if (agentId === 'agent-3.6') { badgeColor = 'badge-blue'; badgeLabel = '🔍 Agent 3.6'; }
+          else if (agentId === 'agent-3.5') { badgeColor = 'badge-amber'; badgeLabel = '📐 Agent 3.5'; }
+          else if (agentId === 'agent-2.5') { badgeColor = 'badge-green'; badgeLabel = '⚡ Agent 2.5'; }
+          else if (agentId === 'pipeline') { badgeColor = 'badge-purple'; badgeLabel = '🚀 4 Agent'; }
+          badgeHtml = `<span class="badge ${badgeColor}" title="${item.aiData?.reasoning || 'Agent AI nội suy'}">${badgeLabel} (${item.matchScore}%)</span>`;
         } else if (item.matchType === 'manual') {
           badgeHtml = `<span class="badge badge-blue">Nhập tay</span>`;
         } else if (item.matchScore >= 80) {
@@ -1182,6 +1190,7 @@ class AppController {
 
     if (res.success && res.data) {
       this.activeAIPendingData = res.data;
+      this.activeAIPendingAgentId = res.agentId || curAgentId;
 
       // Đưa dữ liệu vào Modal xác nhận
       document.getElementById('ai-item-description').textContent = item.description;
@@ -1207,6 +1216,8 @@ class AppController {
     item.laborPrice = this.activeAIPendingData.laborPrice || 0;
     item.matchType = 'ai';
     item.matchScore = this.activeAIPendingData.confidenceScore || 85;
+    item.aiData = this.activeAIPendingData;
+    item.aiAgent = this.activeAIPendingAgentId || this.settings.activeAgent || 'agent-3.8';
 
     item.materialTotal = (item.quantity || 0) * (item.materialPrice || 0);
     item.laborTotal = (item.quantity || 0) * (item.laborPrice || 0);
@@ -1316,6 +1327,7 @@ class AppController {
           item.matchType = 'ai';
           item.matchScore = res.data.confidenceScore || 85;
           item.aiData = res.data;
+          item.aiAgent = res.agentId || curAgentId;
 
           item.materialTotal = (item.quantity || 0) * item.materialPrice;
           item.laborTotal = (item.quantity || 0) * item.laborPrice;

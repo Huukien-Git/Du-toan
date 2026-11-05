@@ -439,16 +439,11 @@ YÊU CẦU:
     return this.fallbackSmartInterpolate(unpricedDescription, referenceCandidates, agentId);
   }
 
-    // 2. TỰ ĐỘNG CHUYỂN SANG BỘ MÁY AI NỘI SUY KỸ THUẬT CƠ ĐIỆN NỘI BỘ
-    // (Bảo đảm 100% công việc của kỹ sư được hoàn thành ngay cả khi Google chặn IP Việt Nam)
-    return this.fallbackSmartInterpolate(unpricedDescription, referenceCandidates);
-  }
-
   /**
    * Bộ Máy AI Nội Suy Kỹ Thuật Cơ Điện Nội Bộ (Offline Heuristic Engine)
    * Phân tích quy cách vật liệu, đường kính, tiết diện và nội suy theo Scaling Law
    */
-  fallbackSmartInterpolate(description, referenceCandidates) {
+  fallbackSmartInterpolate(description, referenceCandidates, agentId = 'agent-3.8') {
     const desc = (description || '').trim();
     const descLower = desc.toLowerCase();
 
