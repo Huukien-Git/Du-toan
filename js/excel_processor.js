@@ -89,70 +89,129 @@ class ExcelProcessor {
   }
 
   /**
-   * Tự động phán đoán vai trò các cột dựa vào tên tiêu đề (Header Auto-detection)
+   * Tự động phán đoán vai trò các cột dựa vào tên tiêu đề (Header Auto-detection Thông Minh)
+   * Sử dụng thuật toán chấm điểm trọng số (Scoring Multi-column) và tự động ghép tiêu đề 2 tầng (Multi-level Header)
    */
   autoDetectColumns(sampleRows, type = 'boq') {
     if (!sampleRows || sampleRows.length === 0) return {};
 
-    // Tìm dòng có khả năng cao là dòng tiêu đề (chứa các từ khóa thông dụng)
-    let headerRowIndex = 0;
-    for (let i = 0; i < Math.min(12, sampleRows.length); i++) {
-      const rowText = (sampleRows[i] || []).join(' ').toLowerCase();
-      if (
-        rowText.includes('stt') ||
-        rowText.includes('tên') ||
-        rowText.includes('diễn giải') ||
-        rowText.includes('vật tư') ||
-        rowText.includes('đvt') ||
-        rowText.includes('đơn vị') ||
-        rowText.includes('khối lượng') ||
-        rowText.includes('đơn giá') ||
-        rowText.includes('cost') ||
-        rowText.includes('price')
-      ) {
-        headerRowIndex = i;
-        break;
+    // 1. Tìm dòng có điểm số Header cao nhất trong tối đa 25 dòng đầu
+    let bestRowIndex = 0;
+    let bestScore = -1;
+
+    for (let i = 0; i < Math.min(25, sampleRows.length); i++) {
+      const row = sampleRows[i] || [];
+      const nonEmptyCells = row.filter(c => c !== null && c !== undefined && c.toString().trim() !== '');
+      if (nonEmptyCells.length < 2) continue; // Bỏ qua các dòng chỉ có 1 ô (thường là tiêu đề dự án, tên công ty)
+
+      let score = 0;
+      const rowText = row.map(c => (c || '').toString().toLowerCase()).join(' ');
+
+      if (rowText.includes('stt') || rowText.includes('no.') || rowText.includes('item')) score += 3;
+      if (rowText.includes('tên') || rowText.includes('diễn giải') || rowText.includes('công tác') || rowText.includes('nội dung') || rowText.includes('mô tả')) score += 5;
+      if (rowText.includes('đvt') || rowText.includes('đơn vị') || rowText.includes('unit')) score += 3;
+      if (rowText.includes('khối lượng') || rowText.includes('số lượng') || rowText.includes('qty')) score += 4;
+      if (rowText.includes('đơn giá') || rowText.includes('price') || rowText.includes('đơn giá (chưa vat)')) score += 4;
+      if (rowText.includes('nhân công') || rowText.includes('vật tư')) score += 3;
+      if (rowText.includes('thành tiền') || rowText.includes('total') || rowText.includes('tiền')) score += 3;
+      if (rowText.includes('quy cách') || rowText.includes('thông số') || rowText.includes('spec')) score += 2;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestRowIndex = i;
       }
     }
 
-    const headers = sampleRows[headerRowIndex] || [];
+    const row1 = sampleRows[bestRowIndex] || [];
+    const row2 = sampleRows[bestRowIndex + 1] || [];
+
+    // 2. Nhận diện tiêu đề 2 tầng (Multi-level Sub-Header)
+    // Ví dụ Tầng 1: Đơn giá, Thành tiền | Tầng 2: Vật tư, Nhân công, Tổng
+    const text2 = row2.map(c => (c || '').toString().toLowerCase()).join(' ');
+    const isSubHeader = (
+      text2.includes('vật tư') ||
+      text2.includes('nhân công') ||
+      text2.includes('máy') ||
+      text2.includes('tổng')
+    );
+
+    let mergedHeaders = [];
+    let currentParent = '';
+    let dataStartRowIndex = bestRowIndex + (isSubHeader ? 2 : 1);
+
+    if (isSubHeader) {
+      const maxLen = Math.max(row1.length, row2.length);
+      for (let c = 0; c < maxLen; c++) {
+        const h1 = (row1[c] || '').toString().trim();
+        const h2 = (row2[c] || '').toString().trim();
+
+        if (h1) currentParent = h1;
+
+        if (h1 && h2) {
+          mergedHeaders.push(h1 + ' - ' + h2);
+        } else if (h2) {
+          mergedHeaders.push((currentParent ? currentParent + ' - ' : '') + h2);
+        } else if (h1) {
+          mergedHeaders.push(h1);
+        } else {
+          mergedHeaders.push(`Cột ${c + 1}`);
+        }
+      }
+    } else {
+      mergedHeaders = row1.map((c, idx) => (c || '').toString().trim() || `Cột ${idx + 1}`);
+    }
+
+    // Tự động bỏ qua các dòng trống trước khi dữ liệu thực sự bắt đầu
+    while (dataStartRowIndex < sampleRows.length) {
+      const r = sampleRows[dataStartRowIndex];
+      if (r && r.some(cell => cell !== null && cell !== undefined && cell.toString().trim() !== '')) {
+        break;
+      }
+      dataStartRowIndex++;
+    }
+
     const mapping = {
-      headerRowIndex: headerRowIndex,
-      dataStartRowIndex: headerRowIndex + 1
+      headerRowIndex: bestRowIndex,
+      dataStartRowIndex: dataStartRowIndex,
+      mergedHeaders: mergedHeaders,
+      isSubHeader: isSubHeader
     };
 
-    headers.forEach((h, colIdx) => {
+    // 3. Quét các tiêu đề cột để ánh xạ vai trò
+    mergedHeaders.forEach((h, colIdx) => {
       const colName = (h || '').toString().trim().toLowerCase();
       if (!colName) return;
 
-      // Nhận diện cột STT
-      if (colName === 'stt' || colName === 'no' || colName === 'item') {
-        mapping.sttCol = colIdx;
+      // Cột STT
+      if (colName === 'stt' || colName === 'no' || colName === 'no.' || colName === 'item') {
+        if (mapping.sttCol === undefined) mapping.sttCol = colIdx;
       }
-      // Nhận diện cột Mã hiệu
+      // Cột Mã hiệu
       else if (colName.includes('mã') || colName.includes('code') || colName.includes('sku')) {
-        mapping.codeCol = colIdx;
+        if (mapping.codeCol === undefined) mapping.codeCol = colIdx;
       }
-      // Nhận diện cột Tên vật tư / Diễn giải
+      // Cột Tên vật tư / Tên công tác / Diễn giải
       else if (
-        colName.includes('tên') ||
+        colName.includes('tên công tác') ||
+        colName.includes('tên công việc') ||
+        colName.includes('tên vật tư') ||
         colName.includes('diễn giải') ||
         colName.includes('nội dung') ||
-        colName.includes('vật tư') ||
         colName.includes('mô tả') ||
-        colName.includes('description')
+        colName.includes('description') ||
+        (colName.includes('tên') && !colName.includes('thành tiền'))
       ) {
         if (mapping.nameCol === undefined) mapping.nameCol = colIdx;
       }
-      // Nhận diện cột Quy cách / Thông số
+      // Cột Quy cách / Thông số
       else if (colName.includes('quy cách') || colName.includes('thông số') || colName.includes('spec') || colName.includes('kích thước')) {
-        mapping.specCol = colIdx;
+        if (mapping.specCol === undefined) mapping.specCol = colIdx;
       }
-      // Nhận diện cột Đơn vị tính (ĐVT)
+      // Cột Đơn vị tính (ĐVT)
       else if (colName.includes('đvt') || colName.includes('đơn vị') || colName.includes('unit')) {
-        mapping.unitCol = colIdx;
+        if (mapping.unitCol === undefined) mapping.unitCol = colIdx;
       }
-      // Nhận diện cột Khối lượng / Số lượng
+      // Cột Khối lượng / Số lượng
       else if (
         colName.includes('khối lượng') ||
         colName.includes('số lượng') ||
@@ -161,77 +220,76 @@ class ExcelProcessor {
         colName === 'kl' ||
         colName === 'sl'
       ) {
-        mapping.quantityCol = colIdx;
+        if (mapping.quantityCol === undefined) mapping.quantityCol = colIdx;
       }
-      // Nhận diện cột Đơn giá Vật tư
+      // Cột Đơn giá Vật tư
       else if (
-        colName.includes('đơn giá vt') ||
-        colName.includes('đơn giá vật tư') ||
-        colName.includes('giá vt') ||
+        (colName.includes('đơn giá') && colName.includes('vật tư')) ||
+        (colName.includes('giá') && colName.includes('vt')) ||
         colName.includes('mat price') ||
-        (colName.includes('vật tư') && colName.includes('đơn giá'))
+        (colName.includes('vật tư') && !colName.includes('thành tiền') && !colName.includes('tên'))
       ) {
-        mapping.materialPriceCol = colIdx;
+        if (mapping.materialPriceCol === undefined) mapping.materialPriceCol = colIdx;
       }
-      // Nhận diện cột Đơn giá Nhân công
+      // Cột Đơn giá Nhân công
       else if (
-        colName.includes('đơn giá nc') ||
-        colName.includes('đơn giá nhân công') ||
-        colName.includes('giá nc') ||
-        colName.includes('nhân công') ||
+        (colName.includes('đơn giá') && colName.includes('nhân công')) ||
+        (colName.includes('giá') && colName.includes('nc')) ||
         colName.includes('labor') ||
-        colName.includes('labour')
+        colName.includes('labour') ||
+        (colName.includes('nhân công') && !colName.includes('thành tiền') && !colName.includes('tên'))
       ) {
-        mapping.laborPriceCol = colIdx;
+        if (mapping.laborPriceCol === undefined) mapping.laborPriceCol = colIdx;
       }
-      // Nhận diện cột Đơn giá chung (nếu không tách riêng)
+      // Cột Đơn giá chung (nếu không tách riêng VT và NC)
       else if (
-        colName.includes('đơn giá') ||
-        colName === 'giá' ||
-        colName.includes('unit price') ||
-        colName.includes('rate')
+        (colName.includes('đơn giá') || colName === 'giá' || colName.includes('unit price') || colName.includes('rate')) &&
+        !colName.includes('thành tiền')
       ) {
         if (mapping.materialPriceCol === undefined) {
           mapping.materialPriceCol = colIdx;
         }
       }
-      // Nhận diện cột Thành tiền VT
+      // Cột Thành tiền Vật tư
       else if (
+        colName.includes('thành tiền - vật tư') ||
         colName.includes('thành tiền vt') ||
         colName.includes('tiền vật tư') ||
         colName.includes('mat amount') ||
         colName.includes('mat total')
       ) {
-        mapping.materialTotalCol = colIdx;
+        if (mapping.materialTotalCol === undefined) mapping.materialTotalCol = colIdx;
       }
-      // Nhận diện cột Thành tiền NC
+      // Cột Thành tiền Nhân công
       else if (
+        colName.includes('thành tiền - nhân công') ||
         colName.includes('thành tiền nc') ||
         colName.includes('tiền nhân công') ||
         colName.includes('lab amount') ||
         colName.includes('lab total')
       ) {
-        mapping.laborTotalCol = colIdx;
+        if (mapping.laborTotalCol === undefined) mapping.laborTotalCol = colIdx;
       }
-      // Nhận diện cột Tổng cộng thành tiền
+      // Cột Tổng cộng thành tiền / Thành tiền tổng
       else if (
         colName.includes('tổng cộng') ||
         colName.includes('tổng tiền') ||
+        colName.includes('thành tiền - tổng') ||
         colName.includes('thành tiền') ||
-        colName.includes('total') ||
+        colName.includes('grand total') ||
         colName.includes('amount')
       ) {
         if (mapping.grandTotalCol === undefined) {
           mapping.grandTotalCol = colIdx;
         }
       }
-      // Nhận diện cột Phân hệ (cho file bảng giá)
+      // Cột Phân hệ (cho file bảng giá)
       else if (colName.includes('hệ thống') || colName.includes('phân hệ') || colName.includes('system')) {
-        mapping.systemCol = colIdx;
+        if (mapping.systemCol === undefined) mapping.systemCol = colIdx;
       }
-      // Nhận diện cột Nhà cung cấp / Hãng
+      // Cột Nhà cung cấp / Hãng
       else if (colName.includes('nhà cung cấp') || colName.includes('hãng') || colName.includes('ncc') || colName.includes('vendor') || colName.includes('brand')) {
-        mapping.supplierCol = colIdx;
+        if (mapping.supplierCol === undefined) mapping.supplierCol = colIdx;
       }
     });
 
@@ -240,8 +298,9 @@ class ExcelProcessor {
 
   /**
    * Chuyển đổi dữ liệu thô sang mảng vật tư chuẩn (cho Kho Bảng Giá)
+   * Tự động lọc bỏ các dòng tiêu đề la mã/phân mục không có giá
    */
-  parsePriceLibrary(rawRows, mapping) {
+  parsePriceLibrary(rawRows, mapping, defaultSystem = 'Hệ Điện') {
     const startRow = mapping.dataStartRowIndex || 1;
     const materials = [];
 
@@ -252,6 +311,9 @@ class ExcelProcessor {
       const name = (row[mapping.nameCol] || '').toString().trim();
       if (!name) continue; // Bỏ qua dòng trống tên
 
+      // Bỏ qua các dòng chỉ chứa ký tự phân mục hoặc đánh số chỉ dẫn: (1), (2), (3)...
+      if (name.match(/^\(\d+\)$/)) continue;
+
       const code = mapping.codeCol !== undefined ? (row[mapping.codeCol] || '').toString().trim() : '';
       const spec = mapping.specCol !== undefined ? (row[mapping.specCol] || '').toString().trim() : '';
       const unit = mapping.unitCol !== undefined ? (row[mapping.unitCol] || '').toString().trim() : 'Bộ';
@@ -259,7 +321,26 @@ class ExcelProcessor {
       const matPrice = mapping.materialPriceCol !== undefined ? this.cleanNumber(row[mapping.materialPriceCol]) : 0;
       const labPrice = mapping.laborPriceCol !== undefined ? this.cleanNumber(row[mapping.laborPriceCol]) : 0;
 
-      const system = mapping.systemCol !== undefined ? (row[mapping.systemCol] || 'Hệ Điện').toString().trim() : 'Hệ Điện';
+      // Nếu cả đơn giá vật tư và đơn giá nhân công đều bằng 0, kiểm tra xem có phải dòng tiêu đề phân mục không
+      if (matPrice === 0 && labPrice === 0) {
+        const upper = name.toUpperCase();
+        if (
+          upper.startsWith('PHẦN') ||
+          upper.startsWith('HẠNG MỤC') ||
+          upper.startsWith('HỆ THỐNG') ||
+          name.match(/^[IVXLCDM]+[\.\s]/i) ||
+          name.match(/^[A-Z][\.\s]/)
+        ) {
+          continue; // Bỏ qua dòng tiêu đề phân mục không có giá để tránh làm rác kho giá
+        }
+      }
+
+      // Xác định phân hệ
+      let system = defaultSystem;
+      if (mapping.systemCol !== undefined && row[mapping.systemCol]) {
+        system = row[mapping.systemCol].toString().trim();
+      }
+
       const supplier = mapping.supplierCol !== undefined ? (row[mapping.supplierCol] || '').toString().trim() : '';
 
       materials.push({
@@ -267,7 +348,7 @@ class ExcelProcessor {
         code: code || `VT-${materials.length + 1}`,
         name: name,
         spec: spec,
-        unit: unit,
+        unit: unit || 'Bộ',
         materialPrice: matPrice,
         laborPrice: labPrice,
         system: system,
@@ -276,6 +357,70 @@ class ExcelProcessor {
     }
 
     return materials;
+  }
+
+  /**
+   * Nạp gộp toàn bộ các Sheet của tệp Bảng Giá đa phân hệ (Multi-sheet Price Catalog)
+   * Tự động nhận diện cột và chuẩn hóa tên phân hệ theo từng Sheet
+   */
+  parseAllSheetsPriceLibrary(workbook, baseMapping = null, defaultSupplier = '') {
+    if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
+      return [];
+    }
+
+    const allMaterials = [];
+    const systemNameMap = {
+      'điện': 'Hệ Thống Điện',
+      'điện nhẹ': 'Hệ Thống Điện Nhẹ',
+      'ctn': 'Hệ Thống Cấp Thoát Nước',
+      'cấp thoát nước': 'Hệ Thống Cấp Thoát Nước',
+      'đhkk': 'Hệ Thống Điều Hòa Không Khí & Thông Gió',
+      'điều hòa': 'Hệ Thống Điều Hòa Không Khí & Thông Gió',
+      'hvac': 'Hệ Thống HVAC',
+      'ckt': 'Hệ Thống Cấp Khí Tươi & Hút Mùi',
+      'tahk': 'Hệ Thống Tăng Áp & Hút Khói',
+      'pccc': 'Hệ Thống PCCC',
+      'heatpump': 'Hệ Thống Heatpump & Nước Nóng'
+    };
+
+    workbook.SheetNames.forEach(sheetName => {
+      const ws = workbook.Sheets[sheetName];
+      if (!ws) return;
+
+      const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (!rawRows || rawRows.length < 2) return;
+
+      // Tự động nhận diện cột cho từng Sheet
+      const sheetMapping = this.autoDetectColumns(rawRows, 'price');
+
+      // Nếu người dùng đã chỉ định mapping từ giao diện và sheet mapping thiếu cột giá thì kế thừa
+      if (baseMapping) {
+        if (sheetMapping.nameCol === undefined && baseMapping.nameCol !== undefined) {
+          sheetMapping.nameCol = baseMapping.nameCol;
+        }
+        if (sheetMapping.unitCol === undefined && baseMapping.unitCol !== undefined) {
+          sheetMapping.unitCol = baseMapping.unitCol;
+        }
+        if (sheetMapping.materialPriceCol === undefined && baseMapping.materialPriceCol !== undefined) {
+          sheetMapping.materialPriceCol = baseMapping.materialPriceCol;
+        }
+        if (sheetMapping.laborPriceCol === undefined && baseMapping.laborPriceCol !== undefined) {
+          sheetMapping.laborPriceCol = baseMapping.laborPriceCol;
+        }
+      }
+
+      // Xác định tên phân hệ chuẩn
+      const lowerSheet = sheetName.trim().toLowerCase();
+      const standardSystem = systemNameMap[lowerSheet] || `Hệ ${sheetName}`;
+
+      const sheetMats = this.parsePriceLibrary(rawRows, sheetMapping, standardSystem);
+      sheetMats.forEach(m => {
+        if (defaultSupplier && !m.supplier) m.supplier = defaultSupplier;
+        allMaterials.push(m);
+      });
+    });
+
+    return allMaterials;
   }
 
   /**

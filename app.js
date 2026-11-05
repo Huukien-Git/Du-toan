@@ -433,13 +433,16 @@ class AppController {
         btnTestGemini.disabled = false;
         btnTestGemini.innerHTML = '<span>🔌</span> Kiểm Tra Kết Nối API';
 
+        // Luôn lưu key, model và proxy để người dùng không bị mất cấu hình
+        this.settings.geminiApiKey = key;
+        this.settings.geminiModel = model;
+        this.settings.geminiProxyUrl = proxy;
+        await window.dbManager.saveSettings(this.settings);
+
         if (res.success) {
-          // Tự động lưu luôn key, model và proxy khi kiểm tra kết nối thành công!
-          this.settings.geminiApiKey = key;
-          this.settings.geminiModel = model;
-          this.settings.geminiProxyUrl = proxy;
-          await window.dbManager.saveSettings(this.settings);
           this.showToast(res.message, 'success');
+        } else if (res.isLocationWarning) {
+          this.showToast('Đã lưu cấu hình! Đang ở chế độ Agent Kỹ Thuật Cơ Điện (Offline Engine) do IP Việt Nam bị Google hạn chế. Bật WARP 1.1.1.1 hoặc dùng Proxy để kết nối trực tiếp đám mây.', 'warning');
         } else {
           this.showToast(res.message, 'error');
         }
@@ -1606,21 +1609,44 @@ class AppController {
     // Sheet dropdown
     const sheetSelect = document.getElementById('map-sheet-select');
     sheetSelect.innerHTML = '';
+
+    // Nếu là file Bảng giá và có nhiều sheet, bổ sung tùy chọn Nạp toàn bộ các sheet
+    if (type !== 'boq' && parsed.sheetNames.length > 1) {
+      const allOpt = document.createElement('option');
+      allOpt.value = '__ALL_SHEETS__';
+      allOpt.textContent = `⭐ Nạp Gộp Toàn Bộ Các Sheet (${parsed.sheetNames.length} Phân Hệ)`;
+      allOpt.selected = true;
+      sheetSelect.appendChild(allOpt);
+    }
+
     parsed.sheetNames.forEach(name => {
       const opt = document.createElement('option');
       opt.value = name;
       opt.textContent = name;
-      opt.selected = (name === parsed.activeSheet);
+      if (type === 'boq' && name === parsed.activeSheet) {
+        opt.selected = true;
+      }
       sheetSelect.appendChild(opt);
     });
 
     sheetSelect.onchange = () => {
-      const rows = window.excelProcessor.switchSheet(sheetSelect.value);
-      this.pendingExcelImport.rawRows = rows;
-      this.renderMappingFields(type, rows);
+      if (sheetSelect.value === '__ALL_SHEETS__') {
+        const rows = window.excelProcessor.switchSheet(parsed.sheetNames[0]);
+        this.pendingExcelImport.rawRows = rows;
+        this.renderMappingFields(type, rows);
+      } else {
+        const rows = window.excelProcessor.switchSheet(sheetSelect.value);
+        this.pendingExcelImport.rawRows = rows;
+        this.renderMappingFields(type, rows);
+      }
     };
 
-    this.renderMappingFields(type, parsed.rows);
+    const initialRows = (sheetSelect.value === '__ALL_SHEETS__') 
+      ? window.excelProcessor.switchSheet(parsed.sheetNames[0]) 
+      : parsed.rows;
+    this.pendingExcelImport.rawRows = initialRows;
+
+    this.renderMappingFields(type, initialRows);
     this.openModal('modal-column-mapping');
   }
 
@@ -1628,10 +1654,11 @@ class AppController {
     const detected = window.excelProcessor.autoDetectColumns(rows, type);
     document.getElementById('map-start-row').value = (detected.dataStartRowIndex || 1) + 1; // Hiển thị 1-indexed
 
-    const headerRow = rows[detected.headerRowIndex || 0] || [];
+    // Ưu tiên sử dụng tiêu đề đã gộp 2 tầng (mergedHeaders) nếu có
+    const headerLabels = detected.mergedHeaders || (rows[detected.headerRowIndex || 0] || []);
     const makeOptions = (selectedColIdx) => {
       let opts = '<option value="">-- Không chọn --</option>';
-      headerRow.forEach((colName, idx) => {
+      headerLabels.forEach((colName, idx) => {
         const name = (colName || '').toString().trim() || `Cột ${idx + 1}`;
         const isSel = idx === selectedColIdx ? 'selected' : '';
         opts += `<option value="${idx}" ${isSel}>Cột ${idx + 1}: ${name}</option>`;
@@ -1679,12 +1706,17 @@ class AppController {
       `;
     } else {
       container.innerHTML = `
+        <div style="grid-column: 1 / -1; margin-bottom: 4px;">
+          <small style="color: #38bdf8; font-weight: 500;">
+            💡 Mẹo: Hệ thống tự động nhận diện cả Bảng giá Vật tư, Bảng giá Nhân công hoặc Bảng giá kết hợp. Chỉ cần chọn ít nhất 1 trong 2 loại đơn giá.
+          </small>
+        </div>
         <div class="form-group">
           <label class="form-label">Cột Mã Hiệu Vật Tư</label>
           <select class="form-control" id="map-col-code">${makeOptions(detected.codeCol)}</select>
         </div>
         <div class="form-group">
-          <label class="form-label">Cột Tên Vật Tư Chuẩn *</label>
+          <label class="form-label">Cột Tên Vật Tư / Tên Công Việc Chuẩn *</label>
           <select class="form-control" id="map-col-name">${makeOptions(detected.nameCol)}</select>
         </div>
         <div class="form-group">
@@ -1696,7 +1728,7 @@ class AppController {
           <select class="form-control" id="map-col-unit">${makeOptions(detected.unitCol)}</select>
         </div>
         <div class="form-group">
-          <label class="form-label">Cột Đơn Giá Vật Tư (VNĐ) *</label>
+          <label class="form-label">Cột Đơn Giá Vật Tư (VNĐ)</label>
           <select class="form-control" id="map-col-matprice">${makeOptions(detected.materialPriceCol)}</select>
         </div>
         <div class="form-group">
@@ -1761,8 +1793,11 @@ class AppController {
     } else {
       const nameCol = parseCol('map-col-name');
       const matPriceCol = parseCol('map-col-matprice');
-      if (nameCol === undefined || matPriceCol === undefined) {
-        this.showToast('Vui lòng chọn cột Tên vật tư và cột Đơn giá!', 'warning');
+      const labPriceCol = parseCol('map-col-labprice');
+
+      // Cho phép linh hoạt: chỉ cần có Tên và ít nhất 1 loại đơn giá (Vật tư HOẶC Nhân công)
+      if (nameCol === undefined || (matPriceCol === undefined && labPriceCol === undefined)) {
+        this.showToast('Vui lòng chọn cột Tên vật tư và ít nhất một cột Đơn giá (Vật tư hoặc Nhân công)!', 'warning');
         return;
       }
 
@@ -1773,15 +1808,28 @@ class AppController {
         specCol: parseCol('map-col-spec'),
         unitCol: parseCol('map-col-unit'),
         materialPriceCol: matPriceCol,
-        laborPriceCol: parseCol('map-col-labprice'),
+        laborPriceCol: labPriceCol,
         systemCol: parseCol('map-col-system'),
         supplierCol: parseCol('map-col-supplier')
       };
 
       const catName = (document.getElementById('map-catalog-name')?.value || '').trim() || this.pendingExcelImport.fileName || 'Bang_Gia_Moi.xlsx';
-      const newMaterials = window.excelProcessor.extractMaterialsFromRows(rows, mapping);
+      const sheetSelect = document.getElementById('map-sheet-select');
+      const isAllSheets = sheetSelect && sheetSelect.value === '__ALL_SHEETS__';
+
+      let newMaterials = [];
+      if (isAllSheets) {
+        newMaterials = window.excelProcessor.parseAllSheetsPriceLibrary(
+          window.excelProcessor.currentWorkbook,
+          mapping,
+          catName
+        );
+      } else {
+        newMaterials = window.excelProcessor.extractMaterialsFromRows(rows, mapping);
+      }
+
       if (newMaterials.length === 0) {
-        this.showToast('Không tìm thấy dòng vật tư hợp lệ nào!', 'warning');
+        this.showToast('Không tìm thấy dòng vật tư / đơn giá hợp lệ nào!', 'warning');
         return;
       }
 
@@ -1789,7 +1837,7 @@ class AppController {
         // Tạo Catalog mới cho file này
         const newCatalog = await window.dbManager.addCatalog({
           fileName: this.pendingExcelImport.fileName || catName,
-          displayName: catName,
+          displayName: isAllSheets ? `${catName} (Tất cả phân hệ)` : catName,
           itemCount: newMaterials.length,
           uploadedAt: new Date().toISOString(),
           isActive: true
@@ -1810,10 +1858,9 @@ class AppController {
         this.updateWorkspaceCatalogStatus();
         this.updateDashboardStats();
 
-        this.showToast(`Đã lưu thành công ${newMaterials.length} vật tư vào bộ đơn giá [${catName}]!`, 'success');
+        this.showToast(`Nạp thành công ${newMaterials.length} đơn giá vào kho "${newCatalog.displayName}"!`, 'success');
       } catch (err) {
-        console.error('Lỗi khi lưu bảng giá vào CSDL:', err);
-        this.showToast('Có lỗi khi lưu bảng giá: ' + (err.message || err), 'error');
+        this.showToast('Lỗi lưu dữ liệu bảng giá: ' + err.message, 'error');
       }
     }
   }

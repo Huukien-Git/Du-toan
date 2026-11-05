@@ -263,7 +263,8 @@ class GeminiService {
       return {
         success: false,
         isLocationWarning: true,
-        message: 'Google AI đang áp dụng chính sách giới hạn vùng IP đối với tài khoản của bạn tại Việt Nam (User location is not supported).\n\n💡 GIẢI PHÁP VƯỢT GIỚI HẠN:\n1. Bật phần mềm Cloudflare 1.1.1.1 WARP (miễn phí) hoặc VPN sang Singapore/US rồi bấm kiểm tra lại.\n2. Hoặc dán đường dẫn Proxy trung gian (Cloudflare Worker) vào ô Proxy bên dưới.'
+        allowOfflineFallback: true,
+        message: 'Google AI đang áp dụng chính sách giới hạn vùng IP đối với tài khoản tại Việt Nam (User location is not supported).\n\n💡 GIẢI PHÁP:\n1. Bật Cloudflare 1.1.1.1 WARP (miễn phí) hoặc VPN sang Singapore/US rồi bấm kiểm tra lại.\n2. Hoặc điền đường dẫn Proxy trung gian vào ô Proxy bên dưới.\n\n✨ HỆ THỐNG ĐÃ KÍCH HOẠT SẴN: Chế độ Agent MEP Thông Minh Nội Bộ (Offline Engine) với đầy đủ 4 Agent chuyên môn để bạn làm việc bình thường ngay bây giờ!'
       };
     }
 
