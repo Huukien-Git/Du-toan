@@ -788,6 +788,8 @@ class DatabaseManager {
     const defaultSettings = {
       geminiApiKey: '',
       geminiModel: 'gemini-2.0-flash',
+      activeAgent: 'agent-3.8', // Mặc định: Agent 3.8 - Kỹ sư Trưởng Dự toán
+      geminiProxyUrl: '', // Proxy trung gian vượt giới hạn vùng IP Việt Nam (Cloudflare Worker/Gateway)
       minFuzzyThreshold: 60, // Ngưỡng tối thiểu đề xuất gợi ý (%)
       autoMatchThreshold: 88, // Ngưỡng tự động chấp nhận giá cao (%)
       theme: 'dark', // Giao diện tối mặc định hiện đại

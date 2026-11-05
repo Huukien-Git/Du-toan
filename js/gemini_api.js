@@ -6,6 +6,76 @@
  *   không bao giờ làm gián đoạn công việc của kỹ sư dự toán!
  */
 
+/**
+ * Hệ thống 4 Agent Chuyên Môn Cơ Điện (MEP Multi-Agent Architecture)
+ * - Agent Gemini 3.8: Kỹ Sư Trưởng Dự Toán & Trọng Tài Giá (Senior Chief MEP Cost Estimator)
+ * - Agent Gemini 3.6: Kỹ Sư Vật Tư & Thuật Ngữ Viết Tắt (MEP Material & Synonym Specialist)
+ * - Agent Gemini 3.5: Kỹ Sư Quy Cách & Tiêu Chuẩn Kỹ Thuật (MEP Specs & Standards Specialist)
+ * - Agent Gemini 2.5: Kỹ Sư Định Mức & Nhân Công Siêu Tốc (MEP Labor Norms & Speed Specialist)
+ * 
+ * Tích hợp giải pháp vượt rào cản IP Việt Nam (Reverse Proxy Gateway) & Bộ máy Heuristic Offline
+ */
+
+const MEP_AGENTS = {
+  'agent-3.8': {
+    id: 'agent-3.8',
+    name: 'Gemini 3.8',
+    fullName: 'Agent Gemini 3.8 (Kỹ Sư Trưởng Dự Toán)',
+    role: 'Kỹ Sư Trưởng Dự Toán & Trọng Tài Giá',
+    icon: '👑',
+    badgeClass: 'badge-purple',
+    badgeText: '👑 Agent 3.8',
+    focus: 'Thẩm định giá tổng hợp, thiết bị công nghệ cao & quyết định chào thầu',
+    defaultModel: 'gemini-2.0-flash',
+    temperature: 0.1,
+    systemPrompt: `Bạn là Agent Gemini 3.8 - Kỹ Sư Trưởng Dự Toán Cơ Điện (Senior Chief MEP Cost Estimator) hàng đầu với 15 năm kinh nghiệm thực chiến tại Việt Nam.
+Nhiệm vụ của bạn là xem xét tổng thể hồ sơ kỹ thuật, thẩm định tính hợp lý của vật tư, kiểm tra thiết bị công nghệ cao và đưa ra quyết định chào thầu đơn giá Vật tư và Nhân công tối ưu, an toàn và cạnh tranh nhất cho nhà thầu.`
+  },
+  'agent-3.6': {
+    id: 'agent-3.6',
+    name: 'Gemini 3.6',
+    fullName: 'Agent Gemini 3.6 (Kỹ Sư Vật Tư & Thuật Ngữ)',
+    role: 'Kỹ Sư Vật Tư & Thuật Ngữ Viết Tắt',
+    icon: '🔍',
+    badgeClass: 'badge-blue',
+    badgeText: '🔍 Agent 3.6',
+    focus: 'Giải mã từ viết tắt, phân hệ M&E, thương hiệu & tìm vật tư tương đương',
+    defaultModel: 'gemini-2.0-flash',
+    temperature: 0.15,
+    systemPrompt: `Bạn là Agent Gemini 3.6 - Kỹ Sư Chuyên Gia Vật Tư & Từ Điển MEP (MEP Material & Synonym Specialist).
+Nhiệm vụ của bạn là giải mã chuẩn xác các ký hiệu viết tắt chuyên ngành (vd: CV, CXV, FRN, D20, MCB, MCCB, RCD, PPR, HDPE, VCSF...) và chuẩn hóa tên vật tư kèm đề xuất đơn giá sát nhất với bảng giá tham chiếu.`
+  },
+  'agent-3.5': {
+    id: 'agent-3.5',
+    name: 'Gemini 3.5',
+    fullName: 'Agent Gemini 3.5 (Kỹ Sư Quy Cách & Tiêu Chuẩn)',
+    role: 'Kỹ Sư Quy Cách & Tiêu Chuẩn Kỹ Thuật',
+    icon: '📐',
+    badgeClass: 'badge-amber',
+    badgeText: '📐 Agent 3.5',
+    focus: 'Bóc tách tiết diện cáp, áp lực PN, cấp chịu lửa FR & thuật toán Upsize',
+    defaultModel: 'gemini-1.5-flash',
+    temperature: 0.05,
+    systemPrompt: `Bạn là Agent Gemini 3.5 - Kỹ Sư Tiêu Chuẩn Kỹ Thuật & Quy Cách Cơ Điện (MEP Specs & Standards Specialist).
+Nhiệm vụ của bạn là bóc tách chính xác từng thông số kỹ thuật định lượng (số lõi x tiết diện mm2, cấp điện áp, cấp chịu nhiệt/chống cháy, áp lực ống PN10/16/20...). Nếu không có cỡ chính xác trong kho, áp dụng quy tắc Upsize (chọn cỡ lớn hơn liền kề) và tính toán đơn giá vật tư.`
+  },
+  'agent-2.5': {
+    id: 'agent-2.5',
+    name: 'Gemini 2.5',
+    fullName: 'Agent Gemini 2.5 (Kỹ Sư Định Mức & Nhân Công)',
+    role: 'Kỹ Sư Định Mức & Nhân Công Siêu Tốc',
+    icon: '⚡',
+    badgeClass: 'badge-green',
+    badgeText: '⚡ Agent 2.5',
+    focus: 'Định mức nhân công lắp đặt, phụ kiện, hao hụt & tốc độ xử lý siêu tốc',
+    defaultModel: 'gemini-1.5-flash',
+    temperature: 0.1,
+    systemPrompt: `Bạn là Agent Gemini 2.5 - Kỹ Sư Định Mức & Chi Phí Nhân Công Cơ Điện (MEP Labor Norms & Speed Specialist).
+Nhiệm vụ của bạn là phản hồi siêu tốc độ, tính toán chi tiết tỷ lệ nhân công lắp đặt trên đơn giá vật tư theo định mức ngành xây dựng Việt Nam và đưa ra đơn giá nhân công sát thực tế nhất.`
+  }
+};
+window.MEP_AGENTS = MEP_AGENTS;
+
 class GeminiService {
   constructor() {
     this.displayName = 'Gemini 2.0 Flash';
@@ -13,9 +83,20 @@ class GeminiService {
   }
 
   /**
+   * Lấy URL gốc (hỗ trợ Reverse Proxy Gateway vượt rào cản IP)
+   */
+  getBaseUrl(proxyUrl = '') {
+    const p = (proxyUrl || '').trim();
+    if (p) {
+      return p.replace(/\/+$/, '');
+    }
+    return 'https://generativelanguage.googleapis.com';
+  }
+
+  /**
    * Tự động dò tìm danh sách model được phép sử dụng từ Google AI Studio (ModelService.ListModels)
    */
-  async discoverBestWorkingModel(apiKey, preferredModel = 'gemini-2.0-flash') {
+  async discoverBestWorkingModel(apiKey, preferredModel = 'gemini-2.0-flash', proxyUrl = '') {
     if (!apiKey) return null;
     let cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
 
@@ -23,12 +104,13 @@ class GeminiService {
       return this.cachedWorkingEndpoint;
     }
 
+    const baseUrl = this.getBaseUrl(proxyUrl);
     const versions = ['v1beta', 'v1'];
     let lastApiError = null;
 
     for (const ver of versions) {
       try {
-        const listUrl = `https://generativelanguage.googleapis.com/${ver}/models?key=${cleanKey}`;
+        const listUrl = `${baseUrl}/${ver}/models?key=${cleanKey}`;
         const response = await fetch(listUrl);
 
         if (!response.ok) {
@@ -104,7 +186,7 @@ class GeminiService {
   /**
    * Kiểm tra tính hợp lệ của API Key
    */
-  async testApiKey(apiKey, model = 'gemini-2.0-flash') {
+  async testApiKey(apiKey, model = 'gemini-2.0-flash', proxyUrl = '') {
     if (!apiKey) {
       return { success: false, message: 'Vui lòng nhập Google Gemini API Key của bạn!' };
     }
@@ -127,7 +209,7 @@ class GeminiService {
     }
 
     const cleanModel = (model || 'gemini-2.0-flash').replace('models/', '');
-    const discovered = await this.discoverBestWorkingModel(cleanKey, cleanModel);
+    const discovered = await this.discoverBestWorkingModel(cleanKey, cleanModel, proxyUrl);
 
     const candidateConfigs = [];
     if (discovered && !discovered.isFallback) {
@@ -156,7 +238,7 @@ class GeminiService {
     let lastError = discovered?.lastApiError || null;
 
     for (const cfg of uniqueConfigs) {
-      const res = await this._callTestEndpoint(cleanKey, cfg.version, cfg.modelPath);
+      const res = await this._callTestEndpoint(cleanKey, cfg.version, cfg.modelPath, proxyUrl);
       if (res.success) {
         const activeName = cfg.modelPath.replace('models/', '');
         this.displayName = activeName;
@@ -167,20 +249,21 @@ class GeminiService {
           displayName: activeName
         };
 
+        const viaGatewayNote = proxyUrl ? ' qua Proxy Gateway' : '';
         return {
           success: true,
-          message: `Kết nối thành công tới mô hình ${activeName} (Google AI Studio)! Hệ thống đã sẵn sàng phân tích BOQ.`
+          message: `Kết nối thành công tới mô hình ${activeName} (Google AI Studio${viaGatewayNote})! Hệ thống đã sẵn sàng phân tích BOQ.`
         };
       }
       lastError = res.message;
     }
 
     // Nếu lỗi do địa lý IP Việt Nam bị Google hạn chế:
-    if (lastError && (lastError.includes('địa lý') || lastError.includes('location') || lastError.includes('supported'))) {
+    if (lastError && (lastError.includes('địa lý') || lastError.includes('location') || lastError.includes('supported') || lastError.includes('failed_precondition'))) {
       return {
-        success: true,
+        success: false,
         isLocationWarning: true,
-        message: 'Google AI đang có chính sách giới hạn vùng IP Việt Nam đối với một số tài khoản. Hệ thống đã kích hoạt sẵn "Bộ Máy AI Nội Suy Kỹ Thuật Cơ Điện" nội bộ để bạn áp giá tự động bình thường! (Nếu muốn gọi trực tiếp Google AI, bạn chỉ cần bật 1.1.1.1 WARP).'
+        message: 'Google AI đang áp dụng chính sách giới hạn vùng IP đối với tài khoản của bạn tại Việt Nam (User location is not supported).\n\n💡 GIẢI PHÁP VƯỢT GIỚI HẠN:\n1. Bật phần mềm Cloudflare 1.1.1.1 WARP (miễn phí) hoặc VPN sang Singapore/US rồi bấm kiểm tra lại.\n2. Hoặc dán đường dẫn Proxy trung gian (Cloudflare Worker) vào ô Proxy bên dưới.'
       };
     }
 
@@ -190,9 +273,10 @@ class GeminiService {
     };
   }
 
-  async _callTestEndpoint(apiKey, version, modelPath) {
+  async _callTestEndpoint(apiKey, version, modelPath, proxyUrl = '') {
     try {
-      const url = `https://generativelanguage.googleapis.com/${version}/${modelPath}:generateContent?key=${apiKey}`;
+      const baseUrl = this.getBaseUrl(proxyUrl);
+      const url = `${baseUrl}/${version}/${modelPath}:generateContent?key=${apiKey}`;
       const payload = {
         contents: [{ parts: [{ text: 'OK' }] }],
         generationConfig: { temperature: 0.1, maxOutputTokens: 5 }
@@ -217,17 +301,19 @@ class GeminiService {
   }
 
   /**
-   * Nhờ AI phân tích ngữ nghĩa viết tắt và nội suy đơn giá vật tư & nhân công
+   * Nhờ Agent AI phân tích ngữ nghĩa viết tắt và nội suy đơn giá vật tư & nhân công
    */
-  async analyzeAndInterpolate(unpricedDescription, referenceCandidates, apiKey, model = 'gemini-2.0-flash') {
+  async analyzeAndInterpolate(unpricedDescription, referenceCandidates, apiKey, agentId = 'agent-3.8', baseModel = 'gemini-2.0-flash', proxyUrl = '') {
     const cleanKey = (apiKey || '').trim().replace(/^["']|["']$/g, '');
+    const isPipeline = (agentId === 'pipeline');
+    const agent = MEP_AGENTS[agentId] || MEP_AGENTS['agent-3.8'];
 
     // 1. Thử gọi Google Gemini AI nếu có key
     if (cleanKey) {
-      const cleanModel = (model || 'gemini-2.0-flash').replace('models/', '');
+      const cleanModel = (baseModel || agent.defaultModel || 'gemini-2.0-flash').replace('models/', '');
       let workingConfig = this.cachedWorkingEndpoint;
       if (!workingConfig || workingConfig.apiKey !== cleanKey) {
-        workingConfig = await this.discoverBestWorkingModel(cleanKey, cleanModel);
+        workingConfig = await this.discoverBestWorkingModel(cleanKey, cleanModel, proxyUrl);
       }
 
       const refItemsSummary = (referenceCandidates || []).slice(0, 10).map((item, i) => {
@@ -236,9 +322,14 @@ class GeminiService {
         return `${i + 1}. [${item.code || 'MEP'}] ${item.name} | Quy cách: ${item.spec || 'N/A'} | ĐVT: ${item.unit || 'bộ'} | Đơn giá VT: ${matP} | Đơn giá NC: ${labP}`;
       }).join('\n');
 
+      let systemPromptText = agent.systemPrompt;
+      if (isPipeline) {
+        systemPromptText = `Bạn là Hệ Thống Liên Hoàn 4 Agent Cơ Điện (Multi-Agent Pipeline gồm Agent 3.8 Kỹ Sư Trưởng, Agent 3.6 Đọc Viết Tắt, Agent 3.5 Bóc Quy Cách/Upsize, Agent 2.5 Định Mức Nhân Công).
+Nhiệm vụ của bạn là kết hợp toàn diện 4 góc nhìn chuyên môn để giải mã chính xác và chốt đơn giá chào thầu tối ưu nhất.`;
+      }
+
       const promptText = `
-Bạn là một Kỹ sư Trưởng Dự toán Cơ Điện (Senior MEP Cost Estimator) hàng đầu tại Việt Nam với 15 năm kinh nghiệm.
-Nhiệm vụ của bạn là giải mã ngữ nghĩa viết tắt kỹ thuật chuyên ngành Cơ Điện (Điện, Nước, PCCC, HVAC) và NỘI SUY TOÀN BỘ ĐƠN GIÁ (gồm cả Đơn giá Vật tư và Đơn giá Nhân công lắp đặt) cho một mục công việc chưa có giá từ bảng BOQ.
+${systemPromptText}
 
 MỤC BOQ CẦN ÁP GIÁ:
 "${unpricedDescription}"
@@ -282,12 +373,17 @@ YÊU CẦU:
         }
       }
 
+      const baseUrl = this.getBaseUrl(proxyUrl);
+
       for (const cfg of uniqueConfigs) {
         try {
-          const url = `https://generativelanguage.googleapis.com/${cfg.version}/${cfg.modelPath}:generateContent?key=${cleanKey}`;
+          const url = `${baseUrl}/${cfg.version}/${cfg.modelPath}:generateContent?key=${cleanKey}`;
           const payload = {
             contents: [{ parts: [{ text: promptText }] }],
-            generationConfig: { temperature: 0.15, maxOutputTokens: 1200 }
+            generationConfig: { 
+              temperature: isPipeline ? 0.1 : (agent.temperature || 0.15), 
+              maxOutputTokens: 1200 
+            }
           };
 
           const response = await fetch(url, {
@@ -310,9 +406,13 @@ YÊU CẦU:
                 displayName: activeModel
               };
 
+              const agentDisplayName = isPipeline ? 'Liên Hoàn 4 Agent' : agent.name;
+
               return {
                 success: true,
-                modelUsed: activeModel,
+                modelUsed: `${agentDisplayName} (${activeModel})`,
+                agentId: isPipeline ? 'pipeline' : agent.id,
+                agentName: agentDisplayName,
                 data: {
                   decodedName: result.decodedName || unpricedDescription,
                   spec: result.spec || '',
@@ -320,7 +420,7 @@ YÊU CẦU:
                   materialPrice: Math.round(Number(result.suggestedMaterialPrice) || 0),
                   laborPrice: Math.round(Number(result.suggestedLaborPrice) || 0),
                   confidenceScore: Math.min(99, Math.max(50, Number(result.confidenceScore) || 85)),
-                  reasoning: result.reasoning || 'Nội suy tự động theo tiêu chuẩn kỹ thuật cơ điện'
+                  reasoning: `[${agentDisplayName}] ` + (result.reasoning || 'Nội suy tự động theo tiêu chuẩn kỹ thuật cơ điện')
                 }
               };
             }
@@ -333,6 +433,11 @@ YÊU CẦU:
         }
       }
     }
+
+    // 2. TỰ ĐỘNG CHUYỂN SANG BỘ MÁY AI NỘI SUY KỸ THUẬT CƠ ĐIỆN NỘI BỘ THEO AGENT
+    // (Bảo đảm 100% công việc của kỹ sư được hoàn thành ngay cả khi Google chặn IP Việt Nam)
+    return this.fallbackSmartInterpolate(unpricedDescription, referenceCandidates, agentId);
+  }
 
     // 2. TỰ ĐỘNG CHUYỂN SANG BỘ MÁY AI NỘI SUY KỸ THUẬT CƠ ĐIỆN NỘI BỘ
     // (Bảo đảm 100% công việc của kỹ sư được hoàn thành ngay cả khi Google chặn IP Việt Nam)
@@ -485,9 +590,15 @@ YÊU CẦU:
       unit = 'Cái';
     }
 
+    const agent = MEP_AGENTS[agentId] || MEP_AGENTS['agent-3.8'];
+    const isPipeline = (agentId === 'pipeline');
+    const agentDisplayName = isPipeline ? 'Liên Hoàn 4 Agent (Pipeline)' : agent.name;
+
     return {
       success: true,
-      modelUsed: 'AI Heuristic Engine (Nội Suy Kỹ Thuật Cơ Điện)',
+      modelUsed: `${agentDisplayName} (Offline Heuristic Engine)`,
+      agentId: isPipeline ? 'pipeline' : agent.id,
+      agentName: agentDisplayName,
       data: {
         decodedName: desc,
         spec: extractedSize ? `Quy cách ${extractedSize} ${sizeUnit}` : 'Chuẩn kỹ thuật MEP',
@@ -495,7 +606,7 @@ YÊU CẦU:
         materialPrice: matPrice,
         laborPrice: labPrice,
         confidenceScore: confidence,
-        reasoning: reasoning + ' - Đạt chuẩn dự toán MEP'
+        reasoning: `[${agentDisplayName}] ` + reasoning + ' - Đạt chuẩn dự toán MEP'
       }
     };
   }
@@ -510,14 +621,14 @@ YÊU CẦU:
     if (s.includes('api_key_invalid') || s.includes('not valid') || s.includes('api key not valid')) {
       return 'API Key không hợp lệ hoặc đã hết hạn! Vui lòng kiểm tra lại chuỗi key (bắt đầu bằng AIzaSy...) copy từ aistudio.google.com';
     }
-    if (s.includes('location') || s.includes('not supported') || s.includes('geographical')) {
-      return 'Khu vực địa lý chưa được hỗ trợ trực tiếp. Vui lòng kiểm tra kết nối mạng hoặc thử đổi DNS (8.8.8.8 / 1.1.1.1)';
+    if (s.includes('location') || s.includes('not supported') || s.includes('geographical') || s.includes('failed_precondition')) {
+      return 'Google AI đang áp dụng chính sách giới hạn vùng IP đối với tài khoản của bạn tại Việt Nam (User location is not supported).\n\n💡 GIẢI PHÁP VƯỢT GIỚI HẠN:\n1. Bật Cloudflare 1.1.1.1 WARP (miễn phí) hoặc VPN sang Singapore/US rồi bấm kiểm tra lại.\n2. Hoặc dán đường dẫn Proxy trung gian (Cloudflare Worker) vào ô Proxy trong mục Cài Đặt.\n(Hệ thống vẫn tự động kích hoạt bộ máy AI nội suy dự phòng để bạn làm việc bình thường).';
     }
     if (s.includes('quota') || s.includes('exhausted') || s.includes('rate limit') || status === 429) {
       return 'Key của bạn đã dùng hết hạn mức gọi miễn phí trong phút này (Rate Limit). Vui lòng đợi 30 giây rồi thử lại!';
     }
     if (s.includes('failed to fetch') || s.includes('networkerror') || s.includes('không thể kết nối')) {
-      return 'Lỗi mạng hoặc không thể kết nối tới Google AI! Vui lòng kiểm tra Internet hoặc trình duyệt có chặn kết nối không.';
+      return 'Lỗi mạng hoặc không thể kết nối tới Google AI! Vui lòng kiểm tra Internet hoặc thử cấu hình Proxy Gateway.';
     }
     return `Lỗi từ Google AI (${status || 'API'}): ${rawMsg}`;
   }

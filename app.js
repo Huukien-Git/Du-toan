@@ -362,6 +362,7 @@ class AppController {
     // 7. Cài Đặt (Settings)
     const btnTestGemini = document.getElementById('btn-test-gemini-key');
     const inputGeminiKey = document.getElementById('setting-gemini-key');
+    const inputGeminiProxy = document.getElementById('setting-gemini-proxy');
 
     // Tự động lưu key ngay khi người dùng gõ hoặc dán vào ô input
     if (inputGeminiKey) {
@@ -374,10 +375,53 @@ class AppController {
       inputGeminiKey.addEventListener('change', syncKey);
     }
 
+    if (inputGeminiProxy) {
+      inputGeminiProxy.addEventListener('change', () => {
+        this.settings.geminiProxyUrl = inputGeminiProxy.value.trim();
+        window.dbManager.saveSettings(this.settings);
+      });
+    }
+
+    // Lắng nghe chọn thẻ Agent trong Cài đặt
+    document.querySelectorAll('.agent-profile-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const agentId = card.getAttribute('data-agent');
+        document.querySelectorAll('.agent-profile-card').forEach(c => {
+          c.classList.toggle('active', c === card);
+          c.style.borderColor = (c === card) ? '#a855f7' : 'var(--bg-border)';
+          c.style.background = (c === card) ? 'rgba(168, 85, 247, 0.12)' : 'var(--bg-card)';
+        });
+        const hiddenEl = document.getElementById('setting-active-agent');
+        if (hiddenEl) hiddenEl.value = agentId;
+        this.settings.activeAgent = agentId;
+        const toolbarSelect = document.getElementById('select-toolbar-agent');
+        if (toolbarSelect) toolbarSelect.value = agentId;
+        window.dbManager.saveSettings(this.settings);
+      });
+    });
+
+    // Lắng nghe chọn Agent trên thanh công cụ BOQ
+    const selectToolbarAgent = document.getElementById('select-toolbar-agent');
+    if (selectToolbarAgent) {
+      selectToolbarAgent.addEventListener('change', (e) => {
+        this.settings.activeAgent = e.target.value;
+        const hiddenEl = document.getElementById('setting-active-agent');
+        if (hiddenEl) hiddenEl.value = e.target.value;
+        document.querySelectorAll('.agent-profile-card').forEach(c => {
+          const isMatch = (c.getAttribute('data-agent') === e.target.value);
+          c.classList.toggle('active', isMatch);
+          c.style.borderColor = isMatch ? '#a855f7' : 'var(--bg-border)';
+          c.style.background = isMatch ? 'rgba(168, 85, 247, 0.12)' : 'var(--bg-card)';
+        });
+        window.dbManager.saveSettings(this.settings);
+      });
+    }
+
     if (btnTestGemini) {
       btnTestGemini.addEventListener('click', async () => {
         const key = (inputGeminiKey?.value || '').trim();
         const model = document.getElementById('setting-gemini-model').value;
+        const proxy = (inputGeminiProxy?.value || '').trim();
         if (!key) {
           this.showToast('Vui lòng nhập API Key vào ô trước khi kiểm tra!', 'warning');
           return;
@@ -385,14 +429,15 @@ class AppController {
 
         btnTestGemini.disabled = true;
         btnTestGemini.innerHTML = '<span>⏳</span> Đang kiểm tra...';
-        const res = await window.geminiService.testApiKey(key, model);
+        const res = await window.geminiService.testApiKey(key, model, proxy);
         btnTestGemini.disabled = false;
         btnTestGemini.innerHTML = '<span>🔌</span> Kiểm Tra Kết Nối API';
 
         if (res.success) {
-          // Tự động lưu luôn key và model khi kiểm tra kết nối thành công!
+          // Tự động lưu luôn key, model và proxy khi kiểm tra kết nối thành công!
           this.settings.geminiApiKey = key;
           this.settings.geminiModel = model;
+          this.settings.geminiProxyUrl = proxy;
           await window.dbManager.saveSettings(this.settings);
           this.showToast(res.message, 'success');
         } else {
@@ -406,6 +451,8 @@ class AppController {
       btnSaveSettings.addEventListener('click', async () => {
         this.settings.geminiApiKey = document.getElementById('setting-gemini-key').value.trim();
         this.settings.geminiModel = document.getElementById('setting-gemini-model').value;
+        this.settings.geminiProxyUrl = (document.getElementById('setting-gemini-proxy')?.value || '').trim();
+        this.settings.activeAgent = document.getElementById('setting-active-agent')?.value || 'agent-3.8';
         this.settings.minFuzzyThreshold = Number(document.getElementById('setting-fuzzy-threshold').value);
         this.settings.autoMatchThreshold = Number(document.getElementById('setting-auto-threshold').value);
 
@@ -545,6 +592,23 @@ class AppController {
     if (this.settings.geminiModel) {
       document.getElementById('setting-gemini-model').value = this.settings.geminiModel;
     }
+    if (this.settings.geminiProxyUrl) {
+      const proxyEl = document.getElementById('setting-gemini-proxy');
+      if (proxyEl) proxyEl.value = this.settings.geminiProxyUrl;
+    }
+    const curAgent = this.settings.activeAgent || 'agent-3.8';
+    const hiddenEl = document.getElementById('setting-active-agent');
+    if (hiddenEl) hiddenEl.value = curAgent;
+    const toolbarSelect = document.getElementById('select-toolbar-agent');
+    if (toolbarSelect) toolbarSelect.value = curAgent;
+
+    document.querySelectorAll('.agent-profile-card').forEach(c => {
+      const isMatch = (c.getAttribute('data-agent') === curAgent);
+      c.classList.toggle('active', isMatch);
+      c.style.borderColor = isMatch ? '#a855f7' : 'var(--bg-border)';
+      c.style.background = isMatch ? 'rgba(168, 85, 247, 0.12)' : 'var(--bg-card)';
+    });
+
     if (this.settings.minFuzzyThreshold) {
       document.getElementById('setting-fuzzy-threshold').value = this.settings.minFuzzyThreshold;
       document.getElementById('val-fuzzy-threshold').textContent = `${this.settings.minFuzzyThreshold}%`;
@@ -1096,7 +1160,11 @@ class AppController {
     }
 
     this.activeAIPendingRowIndex = rowIndex;
-    this.showToast('Đang gửi yêu cầu phân tích tới AI Gemini...', 'info');
+    const curAgentId = document.getElementById('select-toolbar-agent')?.value || this.settings.activeAgent || 'agent-3.8';
+    const agentObj = window.MEP_AGENTS ? window.MEP_AGENTS[curAgentId] : null;
+    const agentLabel = agentObj ? agentObj.name : 'AI Gemini';
+
+    this.showToast(`Đang gửi yêu cầu phân tích tới ${agentLabel}...`, 'info');
 
     // Tìm các vật tư tương đồng gần nhất làm dữ liệu tham chiếu cho AI từ các file bảng giá đang kích hoạt
     const activeMaterials = await window.dbManager.getActiveMaterialsWithPriorities();
@@ -1107,7 +1175,9 @@ class AppController {
       item.description,
       candidates,
       apiKey,
-      this.settings.geminiModel || 'gemini-2.0-flash'
+      curAgentId,
+      this.settings.geminiModel || 'gemini-2.0-flash',
+      this.settings.geminiProxyUrl || ''
     );
 
     if (res.success && res.data) {
@@ -1221,7 +1291,11 @@ class AppController {
       const pct = Math.round(((i + 1) / total) * 100);
       progressBar.style.width = `${pct}%`;
       progressPercent.textContent = `${pct}% (${i + 1}/${total})`;
-      progressText.textContent = `AI Gemini đang phân tích & nội suy dòng ${i + 1}/${total}: "${item.description.slice(0, 32)}..."`;
+      const curAgentId = document.getElementById('select-toolbar-agent')?.value || this.settings.activeAgent || 'agent-3.8';
+      const agentObj = window.MEP_AGENTS ? window.MEP_AGENTS[curAgentId] : null;
+      const agentLabel = agentObj ? agentObj.name : 'AI Gemini';
+
+      progressText.textContent = `${agentLabel} đang phân tích & nội suy dòng ${i + 1}/${total}: "${item.description.slice(0, 32)}..."`;
 
       // Tìm ứng viên tham chiếu trong các file bảng giá đang kích hoạt
       const candidates = window.fuzzyMatcher.findMatches(item.description, matPool, 8, 30).map(s => s.material);
@@ -1231,7 +1305,9 @@ class AppController {
           item.description,
           candidates,
           apiKey,
-          this.settings.geminiModel || 'gemini-2.0-flash'
+          curAgentId,
+          this.settings.geminiModel || 'gemini-2.0-flash',
+          this.settings.geminiProxyUrl || ''
         );
 
         if (res.success && res.data) {
