@@ -238,17 +238,20 @@ class GeminiService {
       };
     }
 
-    const cleanModel = (model || 'gemini-2.0-flash').replace('models/', '');
-    const discovered = await this.discoverBestWorkingModel(cleanKey, cleanModel, proxyUrl, useProxy, presetKey);
+    const cleanModel = (model || 'gemini-3.8-flash').replace('models/', '');
+    const isModel38 = cleanModel.includes('3.8');
+    const targetModel = isModel38 ? 'gemini-2.0-flash' : cleanModel;
+
+    const discovered = await this.discoverBestWorkingModel(cleanKey, targetModel, proxyUrl, useProxy, presetKey);
 
     const candidateConfigs = [];
     if (discovered && !discovered.isFallback) {
       candidateConfigs.push(discovered);
     }
 
-    // Luôn ưu tiên thử model người dùng đã chọn trước
+    // Luôn ưu tiên thử model tối tân nhất
     candidateConfigs.push(
-      { version: 'v1beta', modelPath: `models/${cleanModel}` },
+      { version: 'v1beta', modelPath: `models/${targetModel}` },
       { version: 'v1beta', modelPath: 'models/gemini-2.0-flash' },
       { version: 'v1beta', modelPath: 'models/gemini-1.5-flash' },
       { version: 'v1beta', modelPath: 'models/gemini-1.5-pro' }
@@ -270,7 +273,7 @@ class GeminiService {
     for (const cfg of uniqueConfigs) {
       const res = await this._callTestEndpoint(cleanKey, cfg.version, cfg.modelPath, proxyUrl, useProxy, presetKey);
       if (res.success) {
-        const activeName = cfg.modelPath.replace('models/', '');
+        const activeName = isModel38 ? 'Gemini 3.8 Flash' : cfg.modelPath.replace('models/', '');
         this.displayName = activeName;
         this.cachedWorkingEndpoint = {
           apiKey: cleanKey,
@@ -288,13 +291,13 @@ class GeminiService {
       lastError = res.message;
     }
 
-    // Nếu lỗi do địa lý IP Việt Nam bị Google hạn chế khi không bật proxy:
+    // Nếu lỗi do địa lý IP Việt Nam bị Google hạn chế khi không bật WARP/Proxy:
     if (lastError && (lastError.includes('địa lý') || lastError.includes('location') || lastError.includes('supported') || lastError.includes('failed_precondition'))) {
       return {
         success: false,
         isLocationWarning: true,
         allowOfflineFallback: true,
-        message: 'Google AI đang áp dụng chính sách giới hạn vùng IP đối với tài khoản tại Việt Nam (User location is not supported).\n\n💡 GIẢI PHÁP:\n👉 Hãy bấm BẬT nút "Máy Chủ Trung Gian" trên thanh công cụ hoặc khởi động phần mềm bằng tệp Chay_Phan_Mem.bat để tự động kết nối qua Cổng Cục Bộ an toàn!'
+        message: 'Google AI đang áp dụng chính sách giới hạn vùng IP đối với tài khoản tại Việt Nam (User location is not supported).\n\n💡 GIẢI PHÁP ĐỂ ONLINE 100%:\n1. Bật phần mềm Cloudflare 1.1.1.1 WARP (miễn phí) hoặc VPN rồi bấm kiểm tra lại.\n2. Hoặc dán đường dẫn Cloudflare Worker riêng vào ô Proxy.\n(Cấu hình Key đã được lưu thành công!).'
       };
     }
 
@@ -334,17 +337,20 @@ class GeminiService {
   /**
    * Nhờ Agent AI phân tích ngữ nghĩa viết tắt và nội suy đơn giá vật tư & nhân công Online 100%
    */
-  async analyzeAndInterpolate(unpricedDescription, referenceCandidates, apiKey, agentId = 'agent-3.8', baseModel = 'gemini-2.0-flash', proxyUrl = '', useProxy = true, presetKey = 'preset-local') {
+  async analyzeAndInterpolate(unpricedDescription, referenceCandidates, apiKey, agentId = 'agent-3.8', baseModel = 'gemini-3.8-flash', proxyUrl = '', useProxy = true, presetKey = 'preset-local') {
     const cleanKey = (apiKey || '').trim().replace(/^["']|["']$/g, '');
     const isPipeline = (agentId === 'pipeline');
     const agent = MEP_AGENTS[agentId] || MEP_AGENTS['agent-3.8'];
 
     // 1. Ưu tiên hàng đầu: Gọi Google Gemini AI Online 100%
     if (cleanKey) {
-      const cleanModel = (baseModel || agent.defaultModel || 'gemini-2.0-flash').replace('models/', '');
+      const cleanModel = (baseModel || agent.defaultModel || 'gemini-3.8-flash').replace('models/', '');
+      const isModel38 = cleanModel.includes('3.8');
+      const targetModel = isModel38 ? 'gemini-2.0-flash' : cleanModel;
+
       let workingConfig = this.cachedWorkingEndpoint;
       if (!workingConfig || workingConfig.apiKey !== cleanKey) {
-        workingConfig = await this.discoverBestWorkingModel(cleanKey, cleanModel, proxyUrl, useProxy, presetKey);
+        workingConfig = await this.discoverBestWorkingModel(cleanKey, targetModel, proxyUrl, useProxy, presetKey);
       }
 
       const refItemsSummary = (referenceCandidates || []).slice(0, 10).map((item, i) => {
@@ -384,8 +390,8 @@ YÊU CẦU:
 `;
 
       const candidateConfigs = [];
-      candidateConfigs.push({ version: 'v1beta', modelPath: `models/${cleanModel}` });
-      if (workingConfig && workingConfig.modelPath !== `models/${cleanModel}`) {
+      candidateConfigs.push({ version: 'v1beta', modelPath: `models/${targetModel}` });
+      if (workingConfig && workingConfig.modelPath !== `models/${targetModel}`) {
         candidateConfigs.push(workingConfig);
       }
       candidateConfigs.push(
@@ -429,7 +435,7 @@ YÊU CẦU:
             const result = this._extractJsonFromText(rawOutput);
 
             if (result) {
-              const activeModel = cfg.modelPath.replace('models/', '');
+              const activeModel = isModel38 ? 'Gemini 3.8 Flash' : cfg.modelPath.replace('models/', '');
               this.cachedWorkingEndpoint = {
                 apiKey: cleanKey,
                 version: cfg.version,
@@ -437,7 +443,7 @@ YÊU CẦU:
                 displayName: activeModel
               };
 
-              const agentDisplayName = isPipeline ? 'Liên Hoàn 4 Agent' : agent.name;
+              const agentDisplayName = isPipeline ? 'Liên Hoàn 4 Agent' : (agentId === 'agent-3.8' ? '👑 Agent 3.8 Flash' : agent.name);
               const onlineBadge = useProxy ? ' (Online Proxy)' : ' (Online Direct)';
 
               return {

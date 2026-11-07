@@ -1328,7 +1328,7 @@ class AppController {
       candidates,
       apiKey,
       curAgentId,
-      this.settings.geminiModel || 'gemini-2.0-flash',
+      this.settings.geminiModel || 'gemini-3.8-flash',
       this.settings.geminiProxyUrl || '',
       useProxy,
       presetKey
@@ -1466,7 +1466,7 @@ class AppController {
           candidates,
           apiKey,
           curAgentId,
-          this.settings.geminiModel || 'gemini-2.0-flash',
+          this.settings.geminiModel || 'gemini-3.8-flash',
           this.settings.geminiProxyUrl || '',
           useProxy,
           presetKey

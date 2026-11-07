@@ -787,7 +787,7 @@ class DatabaseManager {
   async getSettings() {
     const defaultSettings = {
       geminiApiKey: '',
-      geminiModel: 'gemini-2.0-flash',
+      geminiModel: 'gemini-3.8-flash',
       activeAgent: 'agent-3.8', // Mặc định: Agent 3.8 - Kỹ sư Trưởng Dự toán
       geminiProxyUrl: '', // Proxy trung gian vượt giới hạn vùng IP Việt Nam (Cloudflare Worker/Gateway)
       minFuzzyThreshold: 60, // Ngưỡng tối thiểu đề xuất gợi ý (%)
@@ -805,9 +805,6 @@ class DatabaseManager {
         request.onsuccess = () => {
           if (request.result && request.result.value) {
             const cfg = { ...defaultSettings, ...request.result.value };
-            if (cfg.geminiModel === 'gemini-3.8-flash' || cfg.geminiModel === 'gemini-2.5-flash') {
-              cfg.geminiModel = 'gemini-2.0-flash';
-            }
             resolve(cfg);
           } else {
             resolve(defaultSettings);
@@ -819,9 +816,6 @@ class DatabaseManager {
       const data = localStorage.getItem(this.storageKeyPrefix + 'settings');
       if (!data) return defaultSettings;
       const cfg = { ...defaultSettings, ...JSON.parse(data) };
-      if (cfg.geminiModel === 'gemini-3.8-flash' || cfg.geminiModel === 'gemini-2.5-flash') {
-        cfg.geminiModel = 'gemini-2.0-flash';
-      }
       return cfg;
     }
   }
