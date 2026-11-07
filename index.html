@@ -199,6 +199,10 @@
               <option value="pipeline">🚀 Liên hoàn 4 Agent (Multi-Agent Pipeline)</option>
             </select>
           </div>
+          <!-- Nút chuyển đổi nhanh Máy Chủ Trung Gian vượt rào cản IP -->
+          <button class="btn btn-secondary" id="btn-toggle-toolbar-proxy" type="button" style="padding: 6px 11px; font-size: 12px; font-weight: 600; border-color: #38bdf8; background: rgba(56, 189, 248, 0.12); color: #38bdf8; transition: all 0.2s ease;" title="Bấm để BẬT/TẮT chuyển tiếp qua máy chủ trung gian quốc tế để dùng Key API Online 100%">
+            <span id="icon-toolbar-proxy">🛡️</span> <span id="text-toolbar-proxy">Máy Chủ Trung Gian: BẬT</span>
+          </button>
           <button class="btn btn-purple" id="btn-run-ai-batch" title="Tự động chạy Agent AI phân tích và nội suy toàn bộ đơn giá cho các dòng thiếu giá hoặc khớp < 70%">
             <span>🤖</span> Chạy Agent Áp Giá
           </button>
@@ -458,16 +462,50 @@
             </span>
           </div>
 
-          <!-- Proxy Gateway vượt giới hạn vùng IP Việt Nam -->
-          <div class="form-group" style="margin-bottom: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-wrap: wrap;">
-              <label class="form-label" for="setting-gemini-proxy" style="margin-bottom: 0;">Proxy / Gateway Vượt Rào Cản IP Việt Nam (Tùy chọn)</label>
-              <span class="badge badge-purple" style="font-size: 10px; padding: 2px 6px;">Bypass Location Lock</span>
+          <!-- Cụm điều khiển Máy Chủ Trung Gian (Reverse Proxy Gateway) -->
+          <div style="margin-bottom: 20px; padding: 14px; background: rgba(56, 189, 248, 0.08); border: 1.5px solid rgba(56, 189, 248, 0.35); border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 20px;">🛡️</span>
+                <div>
+                  <div style="font-size: 13px; font-weight: 700; color: #38bdf8;">
+                    Chuyển Tiếp Máy Chủ Trung Gian (Bypass Rào Cản IP Việt Nam)
+                  </div>
+                  <div style="font-size: 11px; color: var(--text-secondary);">
+                    Giúp kết nối Online 100% tới Google Gemini qua Gateway quốc tế
+                  </div>
+                </div>
+              </div>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: rgba(0,0,0,0.25); padding: 5px 10px; border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.3);">
+                <input type="checkbox" id="setting-enable-proxy" checked style="width: 16px; height: 16px; cursor: pointer; accent-color: #38bdf8;">
+                <span style="font-size: 12px; font-weight: 700; color: #38bdf8;" id="label-proxy-status">Đang BẬT</span>
+              </label>
             </div>
-            <input type="text" class="form-control" id="setting-gemini-proxy" placeholder="Để trống nếu kết nối trực tiếp, hoặc nhập URL Proxy Cloudflare Worker">
-            <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">
-              💡 <em>Nếu gặp thông báo <code>User location is not supported</code>, bạn có thể bật <strong>Cloudflare 1.1.1.1 WARP</strong> hoặc dán URL Proxy Gateway vào đây.</em>
-            </span>
+
+            <div id="proxy-details-container" style="transition: all 0.3s ease;">
+              <div class="form-group" style="margin-bottom: 10px;">
+                <label class="form-label" style="font-size: 12px; margin-bottom: 4px;">Chọn Cổng Máy Chủ Trung Gian</label>
+                <select class="form-control" id="setting-proxy-preset">
+                  <option value="preset-cloudflare" selected>🌐 Máy Chủ 1: Cloudflare Edge Global Gateway (Mặc định - Khuyên dùng)</option>
+                  <option value="preset-vercel">⚡ Máy Chủ 2: Vercel Edge Serverless Gateway (Dự phòng)</option>
+                  <option value="custom">🛠️ Tùy Chỉnh: Nhập địa chỉ Proxy Gateway riêng của bạn</option>
+                </select>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 8px;">
+                <label class="form-label" for="setting-gemini-proxy" style="font-size: 12px; margin-bottom: 4px;">Đường Dẫn Máy Chủ Trung Gian (URL)</label>
+                <input type="text" class="form-control" id="setting-gemini-proxy" placeholder="https://..." style="font-family: monospace; font-size: 12px;">
+              </div>
+
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 6px;">
+                <span style="font-size: 11px; color: var(--text-muted);">
+                  💡 <em>Khi BẬT, toàn bộ cuộc gọi API sẽ chuyển tiếp qua Gateway nước ngoài để dùng Key Online 100%.</em>
+                </span>
+                <button class="btn btn-secondary btn-sm" id="btn-show-worker-guide" type="button" style="font-size: 11px; padding: 3px 8px;">
+                  <span>📋</span> Tự Tạo Gateway Riêng Miễn Phí (1 Phút)
+                </button>
+              </div>
+            </div>
           </div>
 
           <div class="form-group" style="margin-bottom: 20px;">
@@ -921,6 +959,64 @@
         </button>
         <button class="btn btn-primary" data-close="modal-price-catalogs">
           <span>✅</span> Đóng & Áp Dụng Cấu Hình
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODAL 7: HƯỚNG DẪN TẠO MÁY CHỦ TRUNG GIAN CLOUDFLARE WORKER RIÊNG
+       ========================================== -->
+  <div class="modal-overlay" id="modal-worker-guide">
+    <div class="modal-content" style="max-width: 650px; width: 95%;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 22px;">🛡️</span>
+          <div>
+            <h3 class="modal-title">Tạo Máy Chủ Trung Gian Riêng Miễn Phí (1 Phút)</h3>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+              Giải pháp vượt rào cản IP Việt Nam trọn đời bằng Cloudflare Worker hoàn toàn miễn phí
+            </div>
+          </div>
+        </div>
+        <button class="close-modal-btn" data-close="modal-worker-guide">✕</button>
+      </div>
+      <div class="modal-body" style="font-size: 13px; line-height: 1.6;">
+        <p style="margin-bottom: 12px;">
+          Nếu bạn muốn có một máy chủ trung gian riêng tư 100%, bảo mật tuyệt đối và tốc độ cao nhất, bạn có thể tạo 1 Worker miễn phí trên Cloudflare (hỗ trợ tới <strong>100.000 lượt gọi/ngày hoàn toàn miễn phí</strong>):
+        </p>
+
+        <div style="background: rgba(0, 0, 0, 0.2); padding: 12px; border-radius: 6px; border-left: 3px solid #38bdf8; margin-bottom: 14px;">
+          <strong>Bước 1:</strong> Truy cập <a href="https://dash.cloudflare.com" target="_blank" style="color: #38bdf8; font-weight: 600;">dash.cloudflare.com</a> $\rightarrow$ Chọn mục <strong>Workers & Pages</strong> $\rightarrow$ Bấm <strong>Create Application</strong> $\rightarrow$ <strong>Create Worker</strong>.<br>
+          <strong>Bước 2:</strong> Bấm <strong>Deploy</strong>, sau đó chọn <strong>Edit Code</strong> và dán đoạn mã bên dưới vào thay thế toàn bộ mã cũ.<br>
+          <strong>Bước 3:</strong> Bấm <strong>Deploy</strong> lần nữa và copy đường dẫn Worker (dạng <code>https://xxx.workers.dev</code>) dán vào ô <em>Đường Dẫn Máy Chủ Trung Gian</em> trong phần mềm.
+        </div>
+
+        <div style="position: relative;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Mã Nguồn Cloudflare Worker (Chuẩn Reverse Proxy):</label>
+          <pre id="worker-code-snippet" style="background: #0f172a; color: #38bdf8; padding: 12px; border-radius: 6px; font-size: 12px; overflow-x: auto; font-family: monospace; border: 1px solid rgba(56, 189, 248, 0.3); margin-top: 4px;">export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    url.hostname = 'generativelanguage.googleapis.com';
+    url.protocol = 'https:';
+    
+    // Chuyển tiếp nguyên vẹn request tới Google AI
+    const newReq = new Request(url.toString(), {
+      method: request.method,
+      headers: request.headers,
+      body: request.body
+    });
+    return fetch(newReq);
+  }
+};</pre>
+          <button class="btn btn-secondary btn-sm" id="btn-copy-worker-code" type="button" style="margin-top: 6px; font-size: 11px;">
+            <span>📋</span> Sao Chép Mã Nguồn Worker
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" data-close="modal-worker-guide">
+          <span>✅</span> Đã Hiểu
         </button>
       </div>
     </div>

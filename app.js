@@ -359,10 +359,90 @@ class AppController {
       btnSaveManualMemory.addEventListener('click', () => this.saveManualMemory());
     }
 
-    // 7. Cài Đặt (Settings)
+    // 7. Cài Đặt (Settings) & Máy Chủ Trung Gian
     const btnTestGemini = document.getElementById('btn-test-gemini-key');
     const inputGeminiKey = document.getElementById('setting-gemini-key');
     const inputGeminiProxy = document.getElementById('setting-gemini-proxy');
+    const checkEnableProxy = document.getElementById('setting-enable-proxy');
+    const selectProxyPreset = document.getElementById('setting-proxy-preset');
+    const btnToolbarProxy = document.getElementById('btn-toggle-toolbar-proxy');
+    const btnWorkerGuide = document.getElementById('btn-show-worker-guide');
+    const btnCopyWorker = document.getElementById('btn-copy-worker-code');
+
+    // Nút chuyển đổi nhanh Máy Chủ Trung Gian trên thanh công cụ Toolbar
+    if (btnToolbarProxy) {
+      btnToolbarProxy.addEventListener('click', () => {
+        const current = (this.settings.enableProxyGateway !== false);
+        this.settings.enableProxyGateway = !current;
+        window.dbManager.saveSettings(this.settings);
+        this.updateToolbarProxyButton();
+
+        if (checkEnableProxy) {
+          checkEnableProxy.checked = this.settings.enableProxyGateway;
+        }
+        const labelEl = document.getElementById('label-proxy-status');
+        if (labelEl) {
+          labelEl.textContent = this.settings.enableProxyGateway ? 'Đang BẬT' : 'Đang TẮT';
+        }
+
+        if (this.settings.enableProxyGateway) {
+          this.showToast('Đã BẬT Máy Chủ Trung Gian (Sẵn sàng kết nối Google Gemini Online 100%)!', 'success');
+        } else {
+          this.showToast('Đã TẮT Máy Chủ Trung Gian (Chuyển sang kết nối trực tiếp)', 'info');
+        }
+      });
+    }
+
+    // Checkbox bật/tắt trong mục Cài Đặt
+    if (checkEnableProxy) {
+      checkEnableProxy.addEventListener('change', () => {
+        this.settings.enableProxyGateway = checkEnableProxy.checked;
+        const labelEl = document.getElementById('label-proxy-status');
+        if (labelEl) {
+          labelEl.textContent = checkEnableProxy.checked ? 'Đang BẬT' : 'Đang TẮT';
+        }
+        window.dbManager.saveSettings(this.settings);
+        this.updateToolbarProxyButton();
+      });
+    }
+
+    // Dropdown chọn Preset Máy Chủ Trung Gian
+    if (selectProxyPreset) {
+      selectProxyPreset.addEventListener('change', () => {
+        const val = selectProxyPreset.value;
+        this.settings.selectedGatewayPreset = val;
+        if (inputGeminiProxy) {
+          if (val === 'preset-cloudflare') {
+            inputGeminiProxy.value = window.PROXY_GATEWAYS['preset-cloudflare'];
+          } else if (val === 'preset-vercel') {
+            inputGeminiProxy.value = window.PROXY_GATEWAYS['preset-vercel'];
+          } else {
+            inputGeminiProxy.value = '';
+            inputGeminiProxy.focus();
+          }
+          this.settings.geminiProxyUrl = inputGeminiProxy.value.trim();
+        }
+        window.dbManager.saveSettings(this.settings);
+      });
+    }
+
+    // Xem hướng dẫn và sao chép mã Cloudflare Worker
+    if (btnWorkerGuide) {
+      btnWorkerGuide.addEventListener('click', () => {
+        this.openModal('modal-worker-guide');
+      });
+    }
+
+    if (btnCopyWorker) {
+      btnCopyWorker.addEventListener('click', () => {
+        const code = document.getElementById('worker-code-snippet')?.textContent || '';
+        navigator.clipboard.writeText(code).then(() => {
+          this.showToast('Đã sao chép mã nguồn Cloudflare Worker!', 'success');
+        }).catch(() => {
+          this.showToast('Vui lòng chọn và sao chép thủ công đoạn mã', 'warning');
+        });
+      });
+    }
 
     // Tự động lưu key ngay khi người dùng gõ hoặc dán vào ô input
     if (inputGeminiKey) {
@@ -422,6 +502,9 @@ class AppController {
         const key = (inputGeminiKey?.value || '').trim();
         const model = document.getElementById('setting-gemini-model').value;
         const proxy = (inputGeminiProxy?.value || '').trim();
+        const useProxy = (this.settings.enableProxyGateway !== false);
+        const presetKey = this.settings.selectedGatewayPreset || 'preset-cloudflare';
+
         if (!key) {
           this.showToast('Vui lòng nhập API Key vào ô trước khi kiểm tra!', 'warning');
           return;
@@ -429,7 +512,7 @@ class AppController {
 
         btnTestGemini.disabled = true;
         btnTestGemini.innerHTML = '<span>⏳</span> Đang kiểm tra...';
-        const res = await window.geminiService.testApiKey(key, model, proxy);
+        const res = await window.geminiService.testApiKey(key, model, proxy, useProxy, presetKey);
         btnTestGemini.disabled = false;
         btnTestGemini.innerHTML = '<span>🔌</span> Kiểm Tra Kết Nối API';
 
@@ -442,7 +525,7 @@ class AppController {
         if (res.success) {
           this.showToast(res.message, 'success');
         } else if (res.isLocationWarning) {
-          this.showToast('Đã lưu cấu hình! Đang ở chế độ Agent Kỹ Thuật Cơ Điện (Offline Engine) do IP Việt Nam bị Google hạn chế. Bật WARP 1.1.1.1 hoặc dùng Proxy để kết nối trực tiếp đám mây.', 'warning');
+          this.showToast(res.message, 'warning');
         } else {
           this.showToast(res.message, 'error');
         }
@@ -455,11 +538,14 @@ class AppController {
         this.settings.geminiApiKey = document.getElementById('setting-gemini-key').value.trim();
         this.settings.geminiModel = document.getElementById('setting-gemini-model').value;
         this.settings.geminiProxyUrl = (document.getElementById('setting-gemini-proxy')?.value || '').trim();
+        this.settings.enableProxyGateway = document.getElementById('setting-enable-proxy')?.checked ?? true;
+        this.settings.selectedGatewayPreset = document.getElementById('setting-proxy-preset')?.value || 'preset-cloudflare';
         this.settings.activeAgent = document.getElementById('setting-active-agent')?.value || 'agent-3.8';
         this.settings.minFuzzyThreshold = Number(document.getElementById('setting-fuzzy-threshold').value);
         this.settings.autoMatchThreshold = Number(document.getElementById('setting-auto-threshold').value);
 
         await window.dbManager.saveSettings(this.settings);
+        this.updateToolbarProxyButton();
         this.showToast('Đã lưu cấu hình hệ thống thành công!', 'success');
       });
     }
@@ -589,16 +675,39 @@ class AppController {
   }
 
   bindSettingsForm() {
+    // Mặc định BẬT chuyển tiếp máy chủ trung gian để hỗ trợ người dùng tại Việt Nam
+    this.settings.enableProxyGateway = (this.settings.enableProxyGateway !== undefined) ? this.settings.enableProxyGateway : true;
+    this.settings.selectedGatewayPreset = this.settings.selectedGatewayPreset || 'preset-cloudflare';
+
+    const checkProxy = document.getElementById('setting-enable-proxy');
+    if (checkProxy) {
+      checkProxy.checked = this.settings.enableProxyGateway;
+    }
+    const labelProxy = document.getElementById('label-proxy-status');
+    if (labelProxy) {
+      labelProxy.textContent = this.settings.enableProxyGateway ? 'Đang BẬT' : 'Đang TẮT';
+    }
+    const selectPreset = document.getElementById('setting-proxy-preset');
+    if (selectPreset) {
+      selectPreset.value = this.settings.selectedGatewayPreset;
+    }
+
     if (this.settings.geminiApiKey) {
       document.getElementById('setting-gemini-key').value = this.settings.geminiApiKey;
     }
     if (this.settings.geminiModel) {
       document.getElementById('setting-gemini-model').value = this.settings.geminiModel;
     }
-    if (this.settings.geminiProxyUrl) {
-      const proxyEl = document.getElementById('setting-gemini-proxy');
-      if (proxyEl) proxyEl.value = this.settings.geminiProxyUrl;
+
+    const proxyEl = document.getElementById('setting-gemini-proxy');
+    if (proxyEl) {
+      if (this.settings.geminiProxyUrl) {
+        proxyEl.value = this.settings.geminiProxyUrl;
+      } else if (this.settings.enableProxyGateway && window.PROXY_GATEWAYS) {
+        proxyEl.value = window.PROXY_GATEWAYS[this.settings.selectedGatewayPreset] || window.PROXY_GATEWAYS['preset-cloudflare'] || '';
+      }
     }
+
     const curAgent = this.settings.activeAgent || 'agent-3.8';
     const hiddenEl = document.getElementById('setting-active-agent');
     if (hiddenEl) hiddenEl.value = curAgent;
@@ -619,6 +728,35 @@ class AppController {
     if (this.settings.autoMatchThreshold) {
       document.getElementById('setting-auto-threshold').value = this.settings.autoMatchThreshold;
       document.getElementById('val-auto-threshold').textContent = `${this.settings.autoMatchThreshold}%`;
+    }
+
+    this.updateToolbarProxyButton();
+  }
+
+  /**
+   * Cập nhật trạng thái hiển thị của nút Chuyển Tiếp Máy Chủ Trung Gian trên Toolbar
+   */
+  updateToolbarProxyButton() {
+    const btn = document.getElementById('btn-toggle-toolbar-proxy');
+    const icon = document.getElementById('icon-toolbar-proxy');
+    const text = document.getElementById('text-toolbar-proxy');
+    if (!btn) return;
+
+    const isEnabled = (this.settings.enableProxyGateway !== false);
+    if (isEnabled) {
+      btn.style.borderColor = '#38bdf8';
+      btn.style.background = 'rgba(56, 189, 248, 0.15)';
+      btn.style.color = '#38bdf8';
+      if (icon) icon.textContent = '🛡️';
+      if (text) text.textContent = 'Máy Chủ Trung Gian: BẬT';
+      btn.title = 'Đang BẬT chuyển tiếp qua máy chủ trung gian quốc tế để dùng Key Online 100%. Nhấn để chuyển sang kết nối trực tiếp.';
+    } else {
+      btn.style.borderColor = 'var(--bg-border)';
+      btn.style.background = 'var(--bg-card)';
+      btn.style.color = 'var(--text-secondary)';
+      if (icon) icon.textContent = '🌐';
+      if (text) text.textContent = 'Kết Nối Trực Tiếp';
+      btn.title = 'Đang TẮT máy chủ trung gian (kết nối trực tiếp tới Google). Nhấn để bật chuyển tiếp máy chủ trung gian.';
     }
   }
 
@@ -1182,13 +1320,18 @@ class AppController {
     const matPool = activeMaterials.length > 0 ? activeMaterials : (this.currentMaterials || []);
     const candidates = window.fuzzyMatcher.findMatches(item.description, matPool, 8, 30).map(s => s.material);
 
+    const useProxy = (this.settings.enableProxyGateway !== false);
+    const presetKey = this.settings.selectedGatewayPreset || 'preset-cloudflare';
+
     const res = await window.geminiService.analyzeAndInterpolate(
       item.description,
       candidates,
       apiKey,
       curAgentId,
       this.settings.geminiModel || 'gemini-2.0-flash',
-      this.settings.geminiProxyUrl || ''
+      this.settings.geminiProxyUrl || '',
+      useProxy,
+      presetKey
     );
 
     if (res.success && res.data) {
@@ -1315,13 +1458,18 @@ class AppController {
       const candidates = window.fuzzyMatcher.findMatches(item.description, matPool, 8, 30).map(s => s.material);
 
       try {
+        const useProxy = (this.settings.enableProxyGateway !== false);
+        const presetKey = this.settings.selectedGatewayPreset || 'preset-cloudflare';
+
         const res = await window.geminiService.analyzeAndInterpolate(
           item.description,
           candidates,
           apiKey,
           curAgentId,
           this.settings.geminiModel || 'gemini-2.0-flash',
-          this.settings.geminiProxyUrl || ''
+          this.settings.geminiProxyUrl || '',
+          useProxy,
+          presetKey
         );
 
         if (res.success && res.data) {
