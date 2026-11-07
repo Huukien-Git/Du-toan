@@ -42,13 +42,7 @@
     </nav>
 
     <!-- Nút chuyển theme & tác vụ nhanh -->
-    <div class="header-actions" style="display: flex; align-items: center; gap: 10px;">
-      <!-- Nút trạng thái Đám Mây Cloudflare WARP tích hợp sẵn -->
-      <button id="btn-header-cloudflare" class="btn btn-sm" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600; border-radius: 20px; border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.1); color: #38bdf8; cursor: pointer; transition: all 0.2s;" title="Bấm để kiểm tra / bật kết nối Cloudflare WARP">
-        <span id="header-cloudflare-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; display: inline-block;"></span>
-        <span id="header-cloudflare-text">Cloudflare: Đang kiểm tra...</span>
-      </button>
-
+    <div class="header-actions">
       <button class="theme-toggle-btn" id="btn-toggle-theme" title="Chuyển chế độ Sáng / Tối">
         <span id="theme-icon">☀️</span>
       </button>
@@ -511,62 +505,6 @@
                   <span>📋</span> Tự Tạo Gateway Riêng Miễn Phí (1 Phút)
                 </button>
               </div>
-            </div>
-          </div>
-
-          <!-- Trung Tâm Điều Khiển Đám Mây Cloudflare WARP Tích Hợp Sẵn -->
-          <div style="margin-bottom: 20px; padding: 14px; background: rgba(249, 115, 22, 0.08); border: 1.5px solid rgba(249, 115, 22, 0.35); border-radius: 8px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 22px;">🌐</span>
-                <div>
-                  <div style="font-size: 13px; font-weight: 700; color: #fb923c;">
-                    Tích Hợp Đám Mây Cloudflare WARP (Mở Khóa Gemini AI 100%)
-                  </div>
-                  <div style="font-size: 11px; color: var(--text-secondary);" id="cf-card-status-desc">
-                    Trạng thái kết nối mạng Anycast Cloudflare toàn cầu
-                  </div>
-                </div>
-              </div>
-              <span id="badge-cf-status" class="badge" style="font-size: 11px; padding: 4px 8px; background: #334155; color: #94a3b8;">
-                Đang kiểm tra...
-              </span>
-            </div>
-
-            <!-- Khối thông tin kết nối chi tiết -->
-            <div style="background: rgba(0,0,0,0.2); padding: 10px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-              <div>
-                <span style="color: var(--text-muted);">Địa chỉ IP:</span> 
-                <strong id="cf-info-ip" style="font-family: monospace; color: #38bdf8;">--</strong>
-              </div>
-              <div>
-                <span style="color: var(--text-muted);">Vùng định tuyến:</span> 
-                <strong id="cf-info-loc" style="color: #4ade80;">--</strong>
-              </div>
-              <div>
-                <span style="color: var(--text-muted);">Trung tâm dữ liệu (Colo):</span> 
-                <strong id="cf-info-colo" style="font-family: monospace; color: #fb923c;">--</strong>
-              </div>
-              <div>
-                <span style="color: var(--text-muted);">Trạng thái WARP:</span> 
-                <strong id="cf-info-warp" style="color: #94a3b8;">--</strong>
-              </div>
-            </div>
-
-            <!-- Các nút hành động 1-chạm -->
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-              <button class="btn btn-primary btn-sm" id="btn-cf-connect" type="button" style="background: #ea580c; border-color: #f97316;">
-                <span>⚡</span> Bật Kết Nối Cloudflare WARP
-              </button>
-              <button class="btn btn-secondary btn-sm" id="btn-cf-disconnect" type="button" style="display: none;">
-                <span>🛑</span> Ngắt Kết Nối WARP
-              </button>
-              <button class="btn btn-secondary btn-sm" id="btn-cf-install" type="button">
-                <span>📥</span> Cài Đặt Cloudflare WARP (Tự Động)
-              </button>
-              <button class="btn btn-secondary btn-sm" id="btn-cf-refresh" type="button" title="Kiểm tra lại trạng thái mạng">
-                <span>🔄</span> Kiểm Tra Lại
-              </button>
             </div>
           </div>
 
