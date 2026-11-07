@@ -7,6 +7,13 @@ set "APP_DIR=%~dp0"
 set "APP_URL=http://localhost:3000"
 set "FALLBACK_FILE=%APP_DIR%index.html"
 
+:: 0. Tự động kiểm tra và kết nối Cloudflare WARP nếu đã cài đặt
+set "WARP_CLI=%ProgramFiles%\Cloudflare\Cloudflare WARP\warp-cli.exe"
+if exist "%WARP_CLI%" (
+    echo [*] Đang tự động kết nối Cloudflare WARP Online 100%...
+    "%WARP_CLI%" connect >nul 2>nul
+)
+
 :: 1. Kiểm tra và khởi động Máy Chủ Cục Bộ (Local Gateway Server) nếu có Node.js
 where node >nul 2>nul
 if %errorlevel% equ 0 (

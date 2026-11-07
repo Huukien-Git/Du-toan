@@ -83,6 +83,9 @@ class AppController {
 
     // 6. Tải sẵn dữ liệu BOQ Demo để người dùng trải nghiệm ngay
     this.loadDemoBOQ();
+
+    // 7. Khởi tạo tích hợp Đám Mây Cloudflare WARP
+    this.initCloudflareIntegration();
   }
 
   // ==========================================
@@ -757,6 +760,253 @@ class AppController {
       if (icon) icon.textContent = '🌐';
       if (text) text.textContent = 'Kết Nối Trực Tiếp';
       btn.title = 'Đang TẮT máy chủ trung gian (kết nối trực tiếp tới Google). Nhấn để bật chuyển tiếp máy chủ trung gian.';
+    }
+  }
+
+  // ==========================================
+  // QUẢN LÝ TÍCH HỢP ĐÁM MÂY CLOUDFLARE WARP
+  // ==========================================
+
+  /**
+   * Khởi tạo và liên kết các sự kiện tích hợp Đám Mây Cloudflare WARP
+   */
+  async initCloudflareIntegration() {
+    await this.refreshCloudflareStatus(false);
+
+    // Định kỳ làm mới mỗi 20 giây để cập nhật trạng thái mạng thời gian thực
+    setInterval(() => {
+      this.refreshCloudflareStatus(false);
+    }, 20000);
+
+    // 1. Nút trên thanh Header
+    const btnHeaderCf = document.getElementById('btn-header-cloudflare');
+    if (btnHeaderCf) {
+      btnHeaderCf.addEventListener('click', async () => {
+        if (!this.lastCloudflareStatus) {
+          await this.refreshCloudflareStatus(true);
+          return;
+        }
+
+        if (this.lastCloudflareStatus.warpActive) {
+          this.switchTab('tab-settings');
+          this.showToast('Cloudflare WARP đang hoạt động Online 100%!', 'success');
+        } else if (this.lastCloudflareStatus.isInstalled) {
+          await this.toggleCloudflareConnection('connect');
+        } else {
+          this.switchTab('tab-settings');
+          this.showToast('Đang mở trang quản trị Cloudflare...', 'info');
+        }
+      });
+    }
+
+    // 2. Nút Bật kết nối Cloudflare WARP
+    const btnCfConnect = document.getElementById('btn-cf-connect');
+    if (btnCfConnect) {
+      btnCfConnect.addEventListener('click', async () => {
+        await this.toggleCloudflareConnection('connect');
+      });
+    }
+
+    // 3. Nút Ngắt kết nối Cloudflare WARP
+    const btnCfDisconnect = document.getElementById('btn-cf-disconnect');
+    if (btnCfDisconnect) {
+      btnCfDisconnect.addEventListener('click', async () => {
+        await this.toggleCloudflareConnection('disconnect');
+      });
+    }
+
+    // 4. Nút Cài đặt Cloudflare WARP
+    const btnCfInstall = document.getElementById('btn-cf-install');
+    if (btnCfInstall) {
+      btnCfInstall.addEventListener('click', async () => {
+        await this.installCloudflareWarp();
+      });
+    }
+
+    // 5. Nút Kiểm tra lại
+    const btnCfRefresh = document.getElementById('btn-cf-refresh');
+    if (btnCfRefresh) {
+      btnCfRefresh.addEventListener('click', async () => {
+        await this.refreshCloudflareStatus(true);
+      });
+    }
+  }
+
+  /**
+   * Lấy trạng thái mạng Cloudflare từ máy chủ cục bộ
+   */
+  async refreshCloudflareStatus(showToast = false) {
+    try {
+      const res = await fetch('/api/cloudflare/status');
+      if (!res.ok) throw new Error('Không thể kết nối API Cloudflare cục bộ');
+      const data = await res.json();
+      this.lastCloudflareStatus = data;
+      this.renderCloudflareUI(data);
+      if (showToast) {
+        if (data.warpActive) {
+          this.showToast('Cloudflare WARP đang kết nối Online 100% (Vùng ' + (data.colo || data.loc) + ')!', 'success');
+        } else if (data.isInstalled) {
+          this.showToast('Cloudflare WARP đã cài đặt nhưng chưa bật kết nối.', 'warning');
+        } else {
+          this.showToast('Chưa phát hiện bộ cài Cloudflare WARP trên máy.', 'info');
+        }
+      }
+    } catch (e) {
+      console.warn('Lỗi kiểm tra trạng thái Cloudflare:', e.message);
+      this.renderCloudflareUI({ isInstalled: false, warpActive: false, ip: 'Offline', loc: 'VN', colo: '--', warp: 'off' });
+    }
+  }
+
+  /**
+   * Cập nhật giao diện thanh Header và Card Cài đặt
+   */
+  renderCloudflareUI(data) {
+    const btnHeader = document.getElementById('btn-header-cloudflare');
+    const dotHeader = document.getElementById('header-cloudflare-dot');
+    const textHeader = document.getElementById('header-cloudflare-text');
+
+    const badgeStatus = document.getElementById('badge-cf-status');
+    const descStatus = document.getElementById('cf-card-status-desc');
+    const infoIp = document.getElementById('cf-info-ip');
+    const infoLoc = document.getElementById('cf-info-loc');
+    const infoColo = document.getElementById('cf-info-colo');
+    const infoWarp = document.getElementById('cf-info-warp');
+
+    const btnConnect = document.getElementById('btn-cf-connect');
+    const btnDisconnect = document.getElementById('btn-cf-disconnect');
+    const btnInstall = document.getElementById('btn-cf-install');
+
+    if (infoIp) infoIp.textContent = data.ip || '--';
+    if (infoLoc) infoLoc.textContent = data.loc ? (data.loc === 'VN' ? 'Việt Nam (VN)' : data.loc) : '--';
+    if (infoColo) infoColo.textContent = data.colo || '--';
+
+    if (data.warpActive) {
+      // Đang kết nối Online
+      if (dotHeader) dotHeader.style.background = '#22c55e';
+      if (textHeader) textHeader.textContent = 'Cloudflare: Online 100%';
+      if (btnHeader) {
+        btnHeader.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+        btnHeader.style.background = 'rgba(34, 197, 94, 0.12)';
+        btnHeader.style.color = '#4ade80';
+      }
+
+      if (badgeStatus) {
+        badgeStatus.className = 'badge badge-green';
+        badgeStatus.textContent = '🟢 Online 100%';
+      }
+      if (descStatus) descStatus.textContent = 'Mạng Anycast Cloudflare đã kích hoạt, Gemini AI sẵn sàng 100%!';
+      if (infoWarp) {
+        infoWarp.textContent = 'BẬT (Online Cloud)';
+        infoWarp.style.color = '#4ade80';
+      }
+
+      if (btnConnect) btnConnect.style.display = 'none';
+      if (btnDisconnect) btnDisconnect.style.display = 'inline-flex';
+      if (btnInstall) btnInstall.style.display = 'none';
+    } else if (data.isInstalled) {
+      // Đã cài đặt nhưng chưa bật
+      if (dotHeader) dotHeader.style.background = '#f59e0b';
+      if (textHeader) textHeader.textContent = 'Bật Cloudflare WARP';
+      if (btnHeader) {
+        btnHeader.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+        btnHeader.style.background = 'rgba(245, 158, 11, 0.12)';
+        btnHeader.style.color = '#fbbf24';
+      }
+
+      if (badgeStatus) {
+        badgeStatus.className = 'badge badge-amber';
+        badgeStatus.textContent = '⚡ Đã Cài (Chưa Bật)';
+      }
+      if (descStatus) descStatus.textContent = 'Cloudflare WARP đã sẵn sàng. Bấm nút bên dưới để kết nối!';
+      if (infoWarp) {
+        infoWarp.textContent = 'TẮT (Chưa kết nối)';
+        infoWarp.style.color = '#fbbf24';
+      }
+
+      if (btnConnect) btnConnect.style.display = 'inline-flex';
+      if (btnDisconnect) btnDisconnect.style.display = 'none';
+      if (btnInstall) btnInstall.style.display = 'none';
+    } else {
+      // Chưa cài đặt
+      if (dotHeader) dotHeader.style.background = '#94a3b8';
+      if (textHeader) textHeader.textContent = 'Cài Cloudflare (1 Chạm)';
+      if (btnHeader) {
+        btnHeader.style.borderColor = 'rgba(148, 163, 184, 0.4)';
+        btnHeader.style.background = 'rgba(148, 163, 184, 0.12)';
+        btnHeader.style.color = '#94a3b8';
+      }
+
+      if (badgeStatus) {
+        badgeStatus.className = 'badge';
+        badgeStatus.style.background = '#334155';
+        badgeStatus.style.color = '#94a3b8';
+        badgeStatus.textContent = 'Chưa Cài Đặt';
+      }
+      if (descStatus) descStatus.textContent = 'Bấm "Cài Đặt Cloudflare WARP" để tự động tích hợp trong 30 giây.';
+      if (infoWarp) {
+        infoWarp.textContent = 'Chưa cài đặt';
+        infoWarp.style.color = '#94a3b8';
+      }
+
+      if (btnConnect) btnConnect.style.display = 'none';
+      if (btnDisconnect) btnDisconnect.style.display = 'none';
+      if (btnInstall) btnInstall.style.display = 'inline-flex';
+    }
+  }
+
+  /**
+   * Bật hoặc ngắt kết nối Cloudflare WARP
+   */
+  async toggleCloudflareConnection(action) {
+    this.showToast(action === 'connect' ? 'Đang kích hoạt kết nối Cloudflare WARP...' : 'Đang ngắt kết nối Cloudflare...', 'info');
+    try {
+      const res = await fetch('/api/cloudflare/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+      const data = await res.json();
+      if (data.error) {
+        this.showToast(data.error, 'error');
+      } else {
+        this.lastCloudflareStatus = data;
+        this.renderCloudflareUI(data);
+        if (data.warpActive) {
+          this.showToast('Đã kết nối Cloudflare WARP thành công! Toàn bộ Key API Google AI đã Online 100%!', 'success');
+        } else {
+          this.showToast('Đã ngắt kết nối Cloudflare WARP.', 'info');
+        }
+      }
+    } catch (err) {
+      this.showToast('Lỗi gửi lệnh điều khiển Cloudflare: ' + err.message, 'error');
+    }
+  }
+
+  /**
+   * Khởi chạy trình cài đặt Cloudflare WARP tự động
+   */
+  async installCloudflareWarp() {
+    this.showToast('Đang mở trình cài đặt Cloudflare WARP... Vui lòng chọn "Yes" trên thông báo Windows!', 'info');
+    try {
+      const res = await fetch('/api/cloudflare/install', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) {
+        this.showToast('Lỗi mở trình cài đặt: ' + data.error, 'error');
+      } else {
+        this.showToast(data.message, 'success');
+        let checkCount = 0;
+        const interval = setInterval(async () => {
+          checkCount++;
+          await this.refreshCloudflareStatus(false);
+          if (this.lastCloudflareStatus && (this.lastCloudflareStatus.isInstalled || this.lastCloudflareStatus.warpActive)) {
+            clearInterval(interval);
+            this.showToast('Cloudflare WARP đã được tích hợp thành công vào hệ thống!', 'success');
+          }
+          if (checkCount > 20) clearInterval(interval);
+        }, 3000);
+      }
+    } catch (err) {
+      this.showToast('Lỗi: ' + err.message, 'error');
     }
   }
 

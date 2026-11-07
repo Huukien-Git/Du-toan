@@ -5,8 +5,14 @@ currentDir = fso.GetParentFolderName(WScript.ScriptFullName)
 appUrl = "http://localhost:3000"
 fallbackFile = currentDir & "\index.html"
 
-' Khởi động node server.js nếu có node
+' Tự động kích hoạt Cloudflare WARP nếu đã có trên máy
 On Error Resume Next
+warpCli = WshShell.ExpandEnvironmentStrings("%ProgramFiles%") & "\Cloudflare\Cloudflare WARP\warp-cli.exe"
+If fso.FileExists(warpCli) Then
+    WshShell.Run """" & warpCli & """ connect", 0, True
+End If
+
+' Khởi động node server.js nếu có node
 WshShell.Run "node """ & currentDir & "\server.js""", 0, False
 WScript.Sleep 1000
 On Error GoTo 0
