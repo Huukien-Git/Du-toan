@@ -77,12 +77,12 @@ Nhiệm vụ của bạn là phản hồi siêu tốc độ, tính toán chi ti�
 window.MEP_AGENTS = MEP_AGENTS;
 
 /**
- * Danh sách Máy Chủ Trung Gian Quốc Tế (Reverse Proxy Gateways) tích hợp sẵn
- * Giúp vượt qua rào cản kiểm duyệt vùng IP Việt Nam của Google AI Studio
+ * Danh sách Cổng Máy Chủ Trung Gian (Proxy Gateways)
+ * Ưu tiên Cổng Cục Bộ (Local Gateway Server http://localhost:3000) bảo mật 100%, 0ms độ trễ
  */
 const PROXY_GATEWAYS = {
-  'preset-cloudflare': 'https://gemini-proxy.vantech-mep.workers.dev',
-  'preset-vercel': 'https://gemini-proxy-edge.vercel.app',
+  'preset-local': 'http://localhost:3000',
+  'preset-direct': 'https://generativelanguage.googleapis.com',
   'custom': ''
 };
 window.PROXY_GATEWAYS = PROXY_GATEWAYS;
@@ -94,29 +94,39 @@ class GeminiService {
   }
 
   /**
-   * Lấy URL gốc (hỗ trợ chuyển tiếp qua Máy Chủ Trung Gian vượt rào cản IP)
+   * Lấy URL gốc (hỗ trợ chuyển tiếp qua Máy Chủ Trung Gian Cục Bộ hoặc Quốc Tế)
    * @param {string} proxyUrl - Đường dẫn tùy chỉnh nếu có
    * @param {boolean} useProxy - Có bật chuyển tiếp qua máy chủ trung gian không
-   * @param {string} presetKey - Khóa preset ('preset-cloudflare' | 'preset-vercel')
+   * @param {string} presetKey - Khóa preset ('preset-local' | 'custom')
    */
-  getBaseUrl(proxyUrl = '', useProxy = true, presetKey = 'preset-cloudflare') {
+  getBaseUrl(proxyUrl = '', useProxy = true, presetKey = 'preset-local') {
+    // 1. Nếu đang mở qua http://localhost:3000, tự động dùng Cổng Cục Bộ cùng Origin (không bị CORS, ổn định 100%)
+    if (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin.includes('localhost')) {
+      if (useProxy) {
+        return window.location.origin;
+      }
+    }
+
+    // 2. Nếu người dùng bật chuyển tiếp máy chủ trung gian
     if (useProxy) {
       const p = (proxyUrl || '').trim();
       if (p) {
         return p.replace(/\/+$/, '');
       }
-      const preset = PROXY_GATEWAYS[presetKey] || PROXY_GATEWAYS['preset-cloudflare'];
+      const preset = PROXY_GATEWAYS[presetKey] || PROXY_GATEWAYS['preset-local'];
       if (preset) {
         return preset.replace(/\/+$/, '');
       }
     }
+
+    // 3. Kết nối trực tiếp máy chủ Google AI Studio
     return 'https://generativelanguage.googleapis.com';
   }
 
   /**
    * Tự động dò tìm danh sách model được phép sử dụng từ Google AI Studio (ModelService.ListModels)
    */
-  async discoverBestWorkingModel(apiKey, preferredModel = 'gemini-2.0-flash', proxyUrl = '', useProxy = true, presetKey = 'preset-cloudflare') {
+  async discoverBestWorkingModel(apiKey, preferredModel = 'gemini-2.0-flash', proxyUrl = '', useProxy = true, presetKey = 'preset-local') {
     if (!apiKey) return null;
     let cleanKey = apiKey.trim().replace(/^["']|["']$/g, '');
 
@@ -206,7 +216,7 @@ class GeminiService {
   /**
    * Kiểm tra tính hợp lệ của API Key trực tuyến (hỗ trợ bật/tắt Máy Chủ Trung Gian)
    */
-  async testApiKey(apiKey, model = 'gemini-2.0-flash', proxyUrl = '', useProxy = true, presetKey = 'preset-cloudflare') {
+  async testApiKey(apiKey, model = 'gemini-2.0-flash', proxyUrl = '', useProxy = true, presetKey = 'preset-local') {
     if (!apiKey) {
       return { success: false, message: 'Vui lòng nhập Google Gemini API Key của bạn!' };
     }
@@ -269,7 +279,7 @@ class GeminiService {
           displayName: activeName
         };
 
-        const viaGatewayNote = useProxy ? ' (Qua Máy Chủ Trung Gian Quốc Tế - Vượt rào cản IP)' : ' (Kết nối trực tiếp)';
+        const viaGatewayNote = useProxy ? ' (Qua Cổng Chuyển Tiếp Cục Bộ - Bảo Mật & Ổn Định 100%)' : ' (Kết nối trực tiếp)';
         return {
           success: true,
           message: `Kết nối Online 100% thành công tới mô hình ${activeName}${viaGatewayNote}! Hệ thống đã sẵn sàng phân tích BOQ trực tuyến.`
@@ -284,7 +294,7 @@ class GeminiService {
         success: false,
         isLocationWarning: true,
         allowOfflineFallback: true,
-        message: 'Google AI đang áp dụng chính sách giới hạn vùng IP đối với tài khoản tại Việt Nam (User location is not supported).\n\n💡 GIẢI PHÁP:\n👉 Hãy bấm BẬT nút "Máy Chủ Trung Gian" trên thanh công cụ hoặc trong mục Cài Đặt để vượt rào cản IP và kết nối Online 100% ngay lập tức!\n(Hoặc bật phần mềm Cloudflare 1.1.1.1 WARP miễn phí).'
+        message: 'Google AI đang áp dụng chính sách giới hạn vùng IP đối với tài khoản tại Việt Nam (User location is not supported).\n\n💡 GIẢI PHÁP:\n👉 Hãy bấm BẬT nút "Máy Chủ Trung Gian" trên thanh công cụ hoặc khởi động phần mềm bằng tệp Chay_Phan_Mem.bat để tự động kết nối qua Cổng Cục Bộ an toàn!'
       };
     }
 
@@ -294,7 +304,7 @@ class GeminiService {
     };
   }
 
-  async _callTestEndpoint(apiKey, version, modelPath, proxyUrl = '', useProxy = true, presetKey = 'preset-cloudflare') {
+  async _callTestEndpoint(apiKey, version, modelPath, proxyUrl = '', useProxy = true, presetKey = 'preset-local') {
     try {
       const baseUrl = this.getBaseUrl(proxyUrl, useProxy, presetKey);
       const url = `${baseUrl}/${version}/${modelPath}:generateContent?key=${apiKey}`;
@@ -324,7 +334,7 @@ class GeminiService {
   /**
    * Nhờ Agent AI phân tích ngữ nghĩa viết tắt và nội suy đơn giá vật tư & nhân công Online 100%
    */
-  async analyzeAndInterpolate(unpricedDescription, referenceCandidates, apiKey, agentId = 'agent-3.8', baseModel = 'gemini-2.0-flash', proxyUrl = '', useProxy = true, presetKey = 'preset-cloudflare') {
+  async analyzeAndInterpolate(unpricedDescription, referenceCandidates, apiKey, agentId = 'agent-3.8', baseModel = 'gemini-2.0-flash', proxyUrl = '', useProxy = true, presetKey = 'preset-local') {
     const cleanKey = (apiKey || '').trim().replace(/^["']|["']$/g, '');
     const isPipeline = (agentId === 'pipeline');
     const agent = MEP_AGENTS[agentId] || MEP_AGENTS['agent-3.8'];

@@ -412,10 +412,10 @@ class AppController {
         const val = selectProxyPreset.value;
         this.settings.selectedGatewayPreset = val;
         if (inputGeminiProxy) {
-          if (val === 'preset-cloudflare') {
-            inputGeminiProxy.value = window.PROXY_GATEWAYS['preset-cloudflare'];
-          } else if (val === 'preset-vercel') {
-            inputGeminiProxy.value = window.PROXY_GATEWAYS['preset-vercel'];
+          if (val === 'preset-local') {
+            inputGeminiProxy.value = window.PROXY_GATEWAYS['preset-local'] || 'http://localhost:3000';
+          } else if (val === 'preset-direct') {
+            inputGeminiProxy.value = window.PROXY_GATEWAYS['preset-direct'] || 'https://generativelanguage.googleapis.com';
           } else {
             inputGeminiProxy.value = '';
             inputGeminiProxy.focus();
@@ -503,7 +503,7 @@ class AppController {
         const model = document.getElementById('setting-gemini-model').value;
         const proxy = (inputGeminiProxy?.value || '').trim();
         const useProxy = (this.settings.enableProxyGateway !== false);
-        const presetKey = this.settings.selectedGatewayPreset || 'preset-cloudflare';
+        const presetKey = this.settings.selectedGatewayPreset || 'preset-local';
 
         if (!key) {
           this.showToast('Vui lòng nhập API Key vào ô trước khi kiểm tra!', 'warning');
@@ -677,7 +677,7 @@ class AppController {
   bindSettingsForm() {
     // Mặc định BẬT chuyển tiếp máy chủ trung gian để hỗ trợ người dùng tại Việt Nam
     this.settings.enableProxyGateway = (this.settings.enableProxyGateway !== undefined) ? this.settings.enableProxyGateway : true;
-    this.settings.selectedGatewayPreset = this.settings.selectedGatewayPreset || 'preset-cloudflare';
+    this.settings.selectedGatewayPreset = this.settings.selectedGatewayPreset || 'preset-local';
 
     const checkProxy = document.getElementById('setting-enable-proxy');
     if (checkProxy) {
@@ -704,7 +704,7 @@ class AppController {
       if (this.settings.geminiProxyUrl) {
         proxyEl.value = this.settings.geminiProxyUrl;
       } else if (this.settings.enableProxyGateway && window.PROXY_GATEWAYS) {
-        proxyEl.value = window.PROXY_GATEWAYS[this.settings.selectedGatewayPreset] || window.PROXY_GATEWAYS['preset-cloudflare'] || '';
+        proxyEl.value = window.PROXY_GATEWAYS[this.settings.selectedGatewayPreset] || window.PROXY_GATEWAYS['preset-local'] || 'http://localhost:3000';
       }
     }
 
@@ -1321,7 +1321,7 @@ class AppController {
     const candidates = window.fuzzyMatcher.findMatches(item.description, matPool, 8, 30).map(s => s.material);
 
     const useProxy = (this.settings.enableProxyGateway !== false);
-    const presetKey = this.settings.selectedGatewayPreset || 'preset-cloudflare';
+    const presetKey = this.settings.selectedGatewayPreset || 'preset-local';
 
     const res = await window.geminiService.analyzeAndInterpolate(
       item.description,
@@ -1459,7 +1459,7 @@ class AppController {
 
       try {
         const useProxy = (this.settings.enableProxyGateway !== false);
-        const presetKey = this.settings.selectedGatewayPreset || 'preset-cloudflare';
+        const presetKey = this.settings.selectedGatewayPreset || 'preset-local';
 
         const res = await window.geminiService.analyzeAndInterpolate(
           item.description,
